@@ -1091,8 +1091,9 @@ async function loadState(){
       // the app later — only the fields actually present in `parsed` override the defaults.
       STATE = Object.assign(emptyStateTemplate(), parsed);
       let needsResave = false;
-      if(!Array.isArray(STATE.general)){ STATE.general = []; needsResave = true; }
       if(!Array.isArray(STATE.days) || STATE.days.length===0){ STATE.days = [{day_index:0, items:[], date:null}]; needsResave = true; }
+      STATE.days.forEach(d=>{ if(!Array.isArray(d.items)){ d.items = []; needsResave = true; } });
+      if(!Array.isArray(STATE.general)){ STATE.general = []; needsResave = true; }
       if(!Array.isArray(STATE.students)){ STATE.students = []; needsResave = true; }
       if(!Array.isArray(STATE.subscriptions)){ STATE.subscriptions = []; needsResave = true; }
       if(!Array.isArray(STATE.categories)){ STATE.categories = []; needsResave = true; }
@@ -1151,8 +1152,8 @@ function showToast(){
 }
 
 function allItemsFlat(){
-  let all = [...STATE.general];
-  STATE.days.forEach(d=> all.push(...d.items));
+  let all = Array.isArray(STATE.general) ? [...STATE.general] : [];
+  (STATE.days||[]).forEach(d=> all.push(...(Array.isArray(d.items) ? d.items : [])));
   return all;
 }
 
