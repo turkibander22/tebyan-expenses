@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>دورة تبيان القرآنية - متابعة مصاريف الرحلة</title>
+<title>برنامج المصاريف</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -569,11 +569,24 @@
     <h1>لوحة تحكم المشرف</h1>
     <p>إدارة حسابات الأدمن وطلبات التسجيل</p>
     <button class="tab-btn logout-btn" id="dash-logout-btn" style="margin-top:14px;">🚪 تسجيل الخروج</button>
+    <button class="tab-btn backup-btn" id="dash-change-pass-btn" style="margin-top:14px;">🔑 تغيير الرمز</button>
   </header>
   <main>
     <div class="section-title">الحسابات</div>
     <div id="dash-accounts-list"></div>
   </main>
+</div>
+
+<div id="change-pass-modal" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:3000; display:flex; align-items:center; justify-content:center; padding:20px;">
+  <div class="login-box">
+    <h2>تغيير الرمز</h2>
+    <input type="password" id="cp-current" placeholder="الرمز الحالي" autocomplete="current-password">
+    <input type="password" id="cp-new" placeholder="الرمز الجديد (٦ أحرف على الأقل)" autocomplete="new-password">
+    <input type="password" id="cp-new2" placeholder="تأكيد الرمز الجديد" autocomplete="new-password">
+    <button id="cp-submit">حفظ</button>
+    <button class="link-btn" id="cp-cancel" type="button">إلغاء</button>
+    <div class="login-error" id="cp-error"></div>
+  </div>
 </div>
 
 <div id="app-root" class="hidden">
@@ -588,7 +601,7 @@
 <header id="site-header">
   <img id="site-logo" src="" alt="شعار" style="display:none; max-height:70px; max-width:220px; margin:0 auto 10px; display:block; border-radius:10px;">
   <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
-    <h1 id="site-title-text">دورة تبيان القرآنية</h1>
+    <h1 id="site-title-text">برنامج المصاريف</h1>
     <button class="icon-btn header-edit-btn" id="edit-title-btn" title="تعديل العنوان">✏️</button>
   </div>
   <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
@@ -617,6 +630,7 @@
   <button class="tab-btn backup-btn" id="import-backup-btn" style="background:rgba(43,184,159,.18); border-color:var(--teal-light); color:var(--teal-light);">⬆️ استيراد نسخة</button>
   <input type="file" id="import-backup-input" accept="application/json" style="display:none;">
   <button class="tab-btn logout-btn" id="clear-all-btn" style="background:rgba(217,83,79,.12); border-color:#d9534f; color:#e07a77;">🗑️ محو كل البيانات</button>
+  <button class="tab-btn backup-btn" id="change-pass-btn">🔑 تغيير الرمز</button>
   <button class="tab-btn logout-btn" id="logout-btn" style="display:none;">🚪 تسجيل الخروج</button>
 </div>
 
@@ -704,7 +718,6 @@
 
 </main>
 
-<footer>دورة تبيان القرآنية - الدفعة الرابعة</footer>
 </div>
 <!-- /app-root -->
 
@@ -898,8 +911,44 @@ async function doRegister(){
 document.getElementById('logout-btn')?.addEventListener('click', ()=> fbAuth.signOut());
 document.getElementById('dash-logout-btn')?.addEventListener('click', ()=> fbAuth.signOut());
 
+document.getElementById('change-pass-btn')?.addEventListener('click', openChangePasswordModal);
+document.getElementById('dash-change-pass-btn')?.addEventListener('click', openChangePasswordModal);
+document.getElementById('cp-cancel')?.addEventListener('click', closeChangePasswordModal);
+function openChangePasswordModal(){
+  document.getElementById('cp-current').value = '';
+  document.getElementById('cp-new').value = '';
+  document.getElementById('cp-new2').value = '';
+  document.getElementById('cp-error').style.display = 'none';
+  document.getElementById('change-pass-modal').classList.remove('hidden');
+}
+function closeChangePasswordModal(){
+  document.getElementById('change-pass-modal').classList.add('hidden');
+}
+document.getElementById('cp-submit')?.addEventListener('click', async ()=>{
+  const cur = document.getElementById('cp-current').value;
+  const nw = document.getElementById('cp-new').value;
+  const nw2 = document.getElementById('cp-new2').value;
+  const errEl = document.getElementById('cp-error');
+  errEl.style.display = 'none';
+  if(nw.length < 6){ errEl.textContent = 'الرمز الجديد لازم يكون ٦ أحرف على الأقل'; errEl.style.display='block'; return; }
+  if(nw !== nw2){ errEl.textContent = 'الرمزين غير متطابقين'; errEl.style.display='block'; return; }
+  try{
+    const user = fbAuth.currentUser;
+    const cred = firebase.auth.EmailAuthProvider.credential(user.email, cur);
+    await user.reauthenticateWithCredential(cred);
+    await user.updatePassword(nw);
+    closeChangePasswordModal();
+    alert('تم تغيير الرمز بنجاح.');
+  }catch(e){
+    if(e.code === 'auth/wrong-password') errEl.textContent = 'الرمز الحالي غلط';
+    else errEl.textContent = 'صار خطأ، حاول مرة ثانية';
+    errEl.style.display = 'block';
+  }
+});
+
 fbAuth.onAuthStateChanged(async (user)=>{
   if(IS_REGISTERING) return; // doRegister() is handling its own UI right now
+  detachLiveDataListener();
   if(!user){
     CURRENT_UID = null; CURRENT_ROLE = null; IS_IMPERSONATING = false;
     document.getElementById('app-root').classList.add('hidden');
@@ -934,6 +983,7 @@ fbAuth.onAuthStateChanged(async (user)=>{
   ensureCategories(); ensureCategoryGroups(); ensureSiteMeta();
   render();
   await showAdminNotifications();
+  attachLiveDataListener();
 });
 
 // ---------- Super Admin dashboard ----------
@@ -1000,8 +1050,10 @@ async function enterAdminView(uid){
   await loadState();
   ensureCategories(); ensureCategoryGroups(); ensureSiteMeta();
   render();
+  attachLiveDataListener();
 }
 document.getElementById('exit-impersonation-btn')?.addEventListener('click', async ()=>{
+  detachLiveDataListener();
   IS_IMPERSONATING = false; CURRENT_UID = null; CURRENT_ROLE = 'super';
   document.getElementById('impersonation-banner').classList.add('hidden');
   document.getElementById('app-root').classList.add('hidden');
@@ -1073,39 +1125,66 @@ async function storageSet(value){
   if(!CURRENT_UID) return false;
   try{ localStorage.setItem('state-cache-' + CURRENT_UID, value); }catch(e){}
   try{
+    SUPPRESS_LIVE_RENDER = true;
     await fbDb.ref('accounts/' + CURRENT_UID + '/data').set(JSON.parse(value));
     if(IS_IMPERSONATING) await pushNotificationToAdmin(CURRENT_UID, 'تم تعديل بياناتك من قبل الحساب الرئيسي (turkisuper)');
     return true;
   }catch(e){
     console.error('save failed', e);
     return false;
+  } finally {
+    setTimeout(()=>{ SUPPRESS_LIVE_RENDER = false; }, 300);
   }
+}
+
+function normalizeState(parsed){
+  // Merge onto a full empty template so any missing/corrupted field never crashes
+  // the app later — only the fields actually present in `parsed` override the defaults.
+  const s = Object.assign(emptyStateTemplate(), parsed || {});
+  let changed = false;
+  if(!Array.isArray(s.days) || s.days.length===0){ s.days = [{day_index:0, items:[], date:null}]; changed = true; }
+  s.days.forEach(d=>{ if(!Array.isArray(d.items)){ d.items = []; changed = true; } });
+  if(!Array.isArray(s.general)){ s.general = []; changed = true; }
+  if(!Array.isArray(s.students)){ s.students = []; changed = true; }
+  if(!Array.isArray(s.subscriptions)){ s.subscriptions = []; changed = true; }
+  if(!Array.isArray(s.categories)){ s.categories = []; changed = true; }
+  if(!s.images || typeof s.images !== 'object'){ s.images = {}; changed = true; }
+  if(!s.summary || typeof s.summary !== 'object'){ s.summary = {budget:0, consumed:0, remaining:0}; changed = true; }
+  if(!s.categoryGroups || typeof s.categoryGroups !== 'object'){ s.categoryGroups = Object.assign({}, DEFAULT_CATEGORY_GROUPS); changed = true; }
+  return {state: s, changed};
 }
 
 async function loadState(){
   const raw = await storageGet();
   if(raw){
     try{
-      const parsed = JSON.parse(raw);
-      // Merge onto a full empty template so any missing/corrupted field never crashes
-      // the app later — only the fields actually present in `parsed` override the defaults.
-      STATE = Object.assign(emptyStateTemplate(), parsed);
-      let needsResave = false;
-      if(!Array.isArray(STATE.days) || STATE.days.length===0){ STATE.days = [{day_index:0, items:[], date:null}]; needsResave = true; }
-      STATE.days.forEach(d=>{ if(!Array.isArray(d.items)){ d.items = []; needsResave = true; } });
-      if(!Array.isArray(STATE.general)){ STATE.general = []; needsResave = true; }
-      if(!Array.isArray(STATE.students)){ STATE.students = []; needsResave = true; }
-      if(!Array.isArray(STATE.subscriptions)){ STATE.subscriptions = []; needsResave = true; }
-      if(!Array.isArray(STATE.categories)){ STATE.categories = []; needsResave = true; }
-      if(!STATE.images || typeof STATE.images !== 'object'){ STATE.images = {}; needsResave = true; }
-      if(!STATE.summary || typeof STATE.summary !== 'object'){ STATE.summary = {budget:0, consumed:0, remaining:0}; needsResave = true; }
-      if(!STATE.categoryGroups || typeof STATE.categoryGroups !== 'object'){ STATE.categoryGroups = Object.assign({}, DEFAULT_CATEGORY_GROUPS); needsResave = true; }
-      if(needsResave) await saveState();
+      const {state, changed} = normalizeState(JSON.parse(raw));
+      STATE = state;
+      if(changed) await saveState();
       return;
     }catch(e){ /* corrupted JSON entirely, fall through to a fresh template */ }
   }
   STATE = emptyStateTemplate();
   await saveState();
+}
+
+// ---------- Live sync: keep every open session in sync instantly, no manual refresh needed ----------
+let LIVE_DATA_REF = null;
+let SUPPRESS_LIVE_RENDER = false; // true briefly while we are the one writing, so our own echoed update doesn't re-render mid-edit unnecessarily
+function attachLiveDataListener(){
+  detachLiveDataListener();
+  if(!CURRENT_UID) return;
+  LIVE_DATA_REF = fbDb.ref('accounts/' + CURRENT_UID + '/data');
+  LIVE_DATA_REF.on('value', (snap)=>{
+    if(SUPPRESS_LIVE_RENDER) return;
+    if(!snap.exists()) return;
+    const {state} = normalizeState(snap.val());
+    STATE = state;
+    render();
+  });
+}
+function detachLiveDataListener(){
+  if(LIVE_DATA_REF){ LIVE_DATA_REF.off(); LIVE_DATA_REF = null; }
 }
 
 function ensureCategories(){
@@ -1214,8 +1293,8 @@ function render(){
 }
 
 function ensureSiteMeta(){
-  if(STATE.siteTitle === undefined) STATE.siteTitle = 'دورة تبيان القرآنية';
-  if(STATE.siteSubtitle === undefined) STATE.siteSubtitle = 'نظام متابعة مصاريف رحلة الدفعة الرابعة';
+  if(STATE.siteTitle === undefined) STATE.siteTitle = 'برنامج المصاريف';
+  if(STATE.siteSubtitle === undefined) STATE.siteSubtitle = 'نظام متابعة المصاريف';
   if(STATE.logo === undefined) STATE.logo = null;
   if(!STATE.subscriptions) STATE.subscriptions = [];
 }
@@ -1224,7 +1303,7 @@ function renderHeader(){
   ensureSiteMeta();
   document.getElementById('site-title-text').textContent = STATE.siteTitle;
   document.getElementById('site-subtitle-text').textContent = STATE.siteSubtitle;
-  document.title = STATE.siteTitle + ' - متابعة مصاريف الرحلة';
+  document.title = STATE.siteTitle;
   const logoImg = document.getElementById('site-logo');
   const removeLogoBtn = document.getElementById('remove-logo-btn');
   if(STATE.logo){
@@ -1681,7 +1760,7 @@ function renderPrintReport(){
     </div>
   `;
 
-  html += `<h2>استهلاك السفرة — تفاصيل المصاريف والفواتير</h2>`;
+  html += `<h2>تفاصيل المصاريف والفواتير</h2>`;
   html += excelStyleExpenseTable();
 
   html += `<h2 class="pr-page-break">قائمة المشتركين واسترداد المبالغ (اللي عليهم مبالغ فقط)</h2>`;
