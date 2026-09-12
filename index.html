@@ -478,6 +478,7 @@
       color:#1a2b42; direction:rtl; background:#fff;
     }
     #print-report .pr-logo{ position:absolute; top:0; left:0; max-height:85px; max-width:190px; }
+    #print-report.has-logo{ padding-top:95px; }
     #print-report h1{ font-size:19px; text-align:center; margin:0 0 4px; color:#1a2b42; }
     #print-report .pr-sub{ text-align:center; color:#5a5a5a; font-size:11px; margin-bottom:14px; }
     #print-report .pr-summary{ text-align:center; margin-bottom:16px; }
@@ -1907,6 +1908,7 @@ function renderPrintReport(){
       html += `</div>`;
     });
 
+  document.getElementById('print-report').classList.toggle('has-logo', !!STATE.logo);
   document.getElementById('print-report').innerHTML = html;
 }
 
