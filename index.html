@@ -1717,7 +1717,7 @@ document.getElementById('export-backup-btn').addEventListener('click', ()=>{
   const a = document.createElement('a');
   const dateTag = new Date().toISOString().slice(0,10);
   a.href = url;
-  a.download = `tebyan-backup-${dateTag}.json`;
+  a.download = `${dateTag}-backup-expenses.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
