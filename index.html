@@ -862,6 +862,7 @@ async function doLogin(){
   }
 }
 
+let IS_REGISTERING = false;
 document.getElementById('register-submit')?.addEventListener('click', doRegister);
 async function doRegister(){
   const u = document.getElementById('reg-user').value.trim();
@@ -874,6 +875,7 @@ async function doRegister(){
   if(p.length < 6){ errEl.textContent = 'الرمز لازم يكون ٦ أحرف على الأقل'; errEl.style.display='block'; return; }
   if(p !== p2){ errEl.textContent = 'الرمزين غير متطابقين'; errEl.style.display='block'; return; }
   if(!phone){ errEl.textContent = 'أدخل رقم الهاتف'; errEl.style.display='block'; return; }
+  IS_REGISTERING = true; // stops the login listener below from reacting mid-registration
   try{
     const cred = await fbAuth.createUserWithEmailAndPassword(usernameToEmail(u), p);
     await fbDb.ref('accounts/' + cred.user.uid).set({
@@ -882,9 +884,14 @@ async function doRegister(){
     await fbAuth.signOut();
     showGateView('pending');
   }catch(e){
+    console.error('register failed', e);
     if(e.code === 'auth/email-already-in-use') errEl.textContent = 'اسم المستخدم هذا مستخدم من قبل، اختر اسم آخر';
+    else if(e.code === 'permission-denied' || e.message?.includes('PERMISSION_DENIED')) errEl.textContent = 'تعذر حفظ الطلب — تأكد إن قواعد الأمان بفايربيس منشورة صح.';
     else errEl.textContent = 'صار خطأ، حاول مرة ثانية';
     errEl.style.display = 'block';
+    try{ await fbAuth.signOut(); }catch(e2){}
+  } finally {
+    IS_REGISTERING = false;
   }
 }
 
@@ -892,6 +899,7 @@ document.getElementById('logout-btn')?.addEventListener('click', ()=> fbAuth.sig
 document.getElementById('dash-logout-btn')?.addEventListener('click', ()=> fbAuth.signOut());
 
 fbAuth.onAuthStateChanged(async (user)=>{
+  if(IS_REGISTERING) return; // doRegister() is handling its own UI right now
   if(!user){
     CURRENT_UID = null; CURRENT_ROLE = null; IS_IMPERSONATING = false;
     document.getElementById('app-root').classList.add('hidden');
