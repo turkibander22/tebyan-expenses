@@ -1085,7 +1085,23 @@ async function storageSet(value){
 async function loadState(){
   const raw = await storageGet();
   if(raw){
-    try{ STATE = JSON.parse(raw); return; }catch(e){ /* corrupted, fall through */ }
+    try{
+      const parsed = JSON.parse(raw);
+      // Merge onto a full empty template so any missing/corrupted field never crashes
+      // the app later — only the fields actually present in `parsed` override the defaults.
+      STATE = Object.assign(emptyStateTemplate(), parsed);
+      let needsResave = false;
+      if(!Array.isArray(STATE.general)){ STATE.general = []; needsResave = true; }
+      if(!Array.isArray(STATE.days) || STATE.days.length===0){ STATE.days = [{day_index:0, items:[], date:null}]; needsResave = true; }
+      if(!Array.isArray(STATE.students)){ STATE.students = []; needsResave = true; }
+      if(!Array.isArray(STATE.subscriptions)){ STATE.subscriptions = []; needsResave = true; }
+      if(!Array.isArray(STATE.categories)){ STATE.categories = []; needsResave = true; }
+      if(!STATE.images || typeof STATE.images !== 'object'){ STATE.images = {}; needsResave = true; }
+      if(!STATE.summary || typeof STATE.summary !== 'object'){ STATE.summary = {budget:0, consumed:0, remaining:0}; needsResave = true; }
+      if(!STATE.categoryGroups || typeof STATE.categoryGroups !== 'object'){ STATE.categoryGroups = Object.assign({}, DEFAULT_CATEGORY_GROUPS); needsResave = true; }
+      if(needsResave) await saveState();
+      return;
+    }catch(e){ /* corrupted JSON entirely, fall through to a fresh template */ }
   }
   STATE = emptyStateTemplate();
   await saveState();
