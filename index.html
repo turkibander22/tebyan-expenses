@@ -1205,13 +1205,11 @@ function computeCollectedSubs(){
 }
 
 function render(){
-  renderHeader();
-  renderGlobalSummary();
-  renderHome();
-  renderDaily();
-  renderStudents();
-  renderSubscriptions();
-  renderStats();
+  const steps = [renderHeader, renderGlobalSummary, renderHome, renderDaily, renderStudents, renderSubscriptions, renderStats];
+  steps.forEach(fn=>{
+    try{ fn(); }
+    catch(e){ console.error('render step failed:', fn.name, e); }
+  });
 }
 
 function ensureSiteMeta(){
