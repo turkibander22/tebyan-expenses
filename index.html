@@ -1121,13 +1121,20 @@ async function storageGet(){
   }
 }
 
-async function storageSet(value){
-  if(!CURRENT_UID) return false;
+const PAGE_LABELS = {home:'الرئيسية', daily:'المصاريف اليومية', students:'المشتركين', subs:'الاشتراكات', stats:'الإحصائيات'};
+function superEditNoticeText(){
+  const activeBtn = document.querySelector('.tab-btn[data-page].active');
+  const page = activeBtn ? (PAGE_LABELS[activeBtn.dataset.page] || activeBtn.dataset.page) : null;
+  return page
+    ? `قام الحساب الرئيسي (turkisuper) بتعديل بيانات صفحة "${page}"`
+    : 'تم تعديل بياناتك من قبل الحساب الرئيسي (turkisuper)';
+}
+async function storageSet(value){  if(!CURRENT_UID) return false;
   try{ localStorage.setItem('state-cache-' + CURRENT_UID, value); }catch(e){}
   try{
     SUPPRESS_LIVE_RENDER = true;
     await fbDb.ref('accounts/' + CURRENT_UID + '/data').set(JSON.parse(value));
-    if(IS_IMPERSONATING) await pushNotificationToAdmin(CURRENT_UID, 'تم تعديل بياناتك من قبل الحساب الرئيسي (turkisuper)');
+    if(IS_IMPERSONATING) await pushNotificationToAdmin(CURRENT_UID, superEditNoticeText());
     return true;
   }catch(e){
     console.error('save failed', e);
