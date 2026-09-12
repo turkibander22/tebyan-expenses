@@ -416,6 +416,7 @@
   .acc-actions .approve-btn{ background:var(--teal); color:#fff; }
   .acc-actions .reject-btn{ background:var(--red); color:#fff; }
   .acc-actions .enter-btn{ background:rgba(157,184,255,.15); color:#9db8ff; border:1px solid #9db8ff; }
+  .acc-actions .delete-btn{ background:rgba(217,83,79,.15); color:var(--red); border:1px solid var(--red); }
 
   body.is-public .add-row-btn,
   body.is-public #add-student-btn,
@@ -1066,6 +1067,7 @@ async function renderAccountsList(){
     } else {
       actions = `<button class="approve-btn" data-uid="${uid}">✔️ إعادة تفعيل</button>`;
     }
+    actions += `<button class="delete-btn" data-uid="${uid}" data-username="${escapeHtml(acc.username||'')}">🗑️ حذف نهائي</button>`;
     return `<div class="account-card">
       <div class="acc-info">
         <div class="name">${escapeHtml(acc.username || '(بدون اسم)')}</div>
@@ -1079,6 +1081,17 @@ async function renderAccountsList(){
   listEl.querySelectorAll('.approve-btn').forEach(b=> b.addEventListener('click', ()=> setAccountStatus(b.dataset.uid, 'approved')));
   listEl.querySelectorAll('.reject-btn').forEach(b=> b.addEventListener('click', ()=> setAccountStatus(b.dataset.uid, 'rejected')));
   listEl.querySelectorAll('.enter-btn').forEach(b=> b.addEventListener('click', ()=> enterAdminView(b.dataset.uid)));
+  listEl.querySelectorAll('.delete-btn').forEach(b=> b.addEventListener('click', ()=> deleteAccount(b.dataset.uid, b.dataset.username)));
+}
+async function deleteAccount(uid, username){
+  if(!confirm(`⚠️ بيتم حذف حساب "${username || uid}" وكل بياناته (مصاريف، مشتركين، اشتراكات) نهائيًا من النظام. ما فيه رجعة إلا لو عندك نسخة احتياطية. متأكد تبي تكمل؟`)) return;
+  if(!confirm('تأكيد أخير: الحذف نهائي ولا يمكن التراجع عنه. متأكد ١٠٠٪؟')) return;
+  try{
+    await fbDb.ref('accounts/' + uid).remove();
+    await renderAccountsList();
+  }catch(e){
+    alert('تعذر حذف الحساب.');
+  }
 }
 async function setAccountStatus(uid, status){
   try{ await fbDb.ref('accounts/' + uid + '/status').set(status); await renderAccountsList(); }
