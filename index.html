@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>برنامج بناء التربوي</title>
+<title>برنامج المصاريف</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -570,7 +570,7 @@
 
 <div id="login-gate" class="hidden">
   <div class="login-box" id="gate-view-login">
-    <h2>برنامج بناء التربوي</h2>
+    <h2>برنامج المصاريف</h2>
     <p>الدخول مخصص للحسابات المعتمدة — أدخل اسم المستخدم والرمز</p>
     <input type="text" id="login-user" placeholder="اسم المستخدم" autocomplete="username">
     <input type="password" id="login-pass" placeholder="الرمز" autocomplete="current-password">
@@ -593,6 +593,7 @@
     <h2>إنشاء حساب جديد</h2>
     <p>بعد الإرسال، يراجع المشرف طلبك قبل ما تقدر تدخل</p>
     <input type="text" id="reg-user" placeholder="اسم المستخدم (حروف إنجليزية وأرقام)" autocomplete="username">
+    <input type="text" id="reg-progname" placeholder="اسم البرنامج (يظهر بأعلى صفحتك)">
     <input type="email" id="reg-email" placeholder="بريدك الإلكتروني (لاستعادة الرمز عند نسيانه)" autocomplete="email">
     <input type="password" id="reg-pass" placeholder="الرمز" autocomplete="new-password">
     <input type="password" id="reg-pass2" placeholder="تأكيد الرمز" autocomplete="new-password">
@@ -652,7 +653,7 @@
 <header id="site-header">
   <img id="site-logo" src="" alt="شعار" style="display:none; max-height:70px; max-width:220px; margin:0 auto 10px; display:block; border-radius:10px;">
   <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
-    <h1 id="site-title-text">برنامج بناء التربوي</h1>
+    <h1 id="site-title-text">برنامج المصاريف</h1>
     <button class="icon-btn header-edit-btn" id="edit-title-btn" title="تعديل العنوان">✏️</button>
   </div>
   <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
@@ -876,7 +877,7 @@ document.getElementById('theme-toggle-btn').addEventListener('click', ()=>{
 });
 if(document.body.classList.contains('light-theme')) document.getElementById('theme-toggle-btn').textContent = '☀️';
 
-const EMPTY_STATE_TEMPLATE_JSON = /*DATA_START*/{"general": [], "days": [{"day_index": 0, "items": [], "date": null}], "summary": {"budget": 0, "consumed": 0, "remaining": 0}, "students": [], "subscriptions": [], "images": {}, "categories": [], "categoryGroups": null, "siteTitle": "\u0628\u0631\u0646\u0627\u0645\u062c \u0628\u0646\u0627\u0621 \u0627\u0644\u062a\u0631\u0628\u0648\u064a", "siteSubtitle": "\u0646\u0638\u0627\u0645 \u0645\u062a\u0627\u0628\u0639\u0629 \u0627\u0644\u0645\u0635\u0627\u0631\u064a\u0641", "logo": null}/*DATA_END*/;
+const EMPTY_STATE_TEMPLATE_JSON = /*DATA_START*/{"general": [], "days": [{"day_index": 0, "items": [], "date": null}], "summary": {"budget": 0, "consumed": 0, "remaining": 0}, "students": [], "subscriptions": [], "images": {}, "categories": [], "categoryGroups": null, "siteTitle": "\u0628\u0631\u0646\u0627\u0645\u062c \u0627\u0644\u0645\u0635\u0627\u0631\u064a\u0641", "siteSubtitle": "\u0646\u0638\u0627\u0645 \u0645\u062a\u0627\u0628\u0639\u0629 \u0627\u0644\u0645\u0635\u0627\u0631\u064a\u0641", "logo": null}/*DATA_END*/;
 function emptyStateTemplate(){
   const t = JSON.parse(JSON.stringify(EMPTY_STATE_TEMPLATE_JSON));
   t.categoryGroups = Object.assign({}, DEFAULT_CATEGORY_GROUPS);
@@ -974,12 +975,14 @@ let IS_REGISTERING = false;
 document.getElementById('register-submit')?.addEventListener('click', doRegister);
 async function doRegister(){
   const u = document.getElementById('reg-user').value.trim();
+  const progName = document.getElementById('reg-progname').value.trim();
   const emailInput = document.getElementById('reg-email').value.trim();
   const p = document.getElementById('reg-pass').value;
   const p2 = document.getElementById('reg-pass2').value;
   const errEl = document.getElementById('register-error');
   errEl.style.display = 'none';
   if(!USERNAME_RE.test(u)){ errEl.textContent = 'اسم المستخدم لازم يكون حروف إنجليزية أو أرقام فقط (٣ إلى ٢٠ رمز)'; errEl.style.display='block'; return; }
+  if(!progName){ errEl.textContent = 'أدخل اسم البرنامج'; errEl.style.display='block'; return; }
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput)){ errEl.textContent = 'أدخل بريد إلكتروني صحيح — يحتاجه النظام لاستعادة الرمز عند نسيانه'; errEl.style.display='block'; return; }
   if(p.length < 6){ errEl.textContent = 'الرمز لازم يكون ٦ أحرف على الأقل'; errEl.style.display='block'; return; }
   if(p !== p2){ errEl.textContent = 'الرمزين غير متطابقين'; errEl.style.display='block'; return; }
@@ -988,7 +991,7 @@ async function doRegister(){
   try{
     const cred = await fbAuth.createUserWithEmailAndPassword(emailInput, p);
     await fbDb.ref('accounts/' + cred.user.uid).set({
-      username: u, email: emailInput, status: 'pending', createdAt: Date.now()
+      username: u, email: emailInput, programName: progName, status: 'pending', createdAt: Date.now()
     });
     await fbDb.ref('usernameEmailMap/' + uKey).set(emailInput);
     await fbAuth.signOut();
@@ -1310,6 +1313,13 @@ async function loadState(){
     }catch(e){ /* corrupted JSON entirely, fall through to a fresh template */ }
   }
   STATE = emptyStateTemplate();
+  // First time this account ever loads: use the program name they chose at registration, if any.
+  if(CURRENT_UID){
+    try{
+      const snap = await fbDb.ref('accounts/' + CURRENT_UID + '/programName').get();
+      if(snap.exists() && snap.val()) STATE.siteTitle = snap.val();
+    }catch(e){}
+  }
   await saveState();
 }
 
@@ -1438,7 +1448,7 @@ function render(){
 }
 
 function ensureSiteMeta(){
-  if(STATE.siteTitle === undefined) STATE.siteTitle = 'برنامج بناء التربوي';
+  if(STATE.siteTitle === undefined) STATE.siteTitle = 'برنامج المصاريف';
   if(STATE.siteSubtitle === undefined) STATE.siteSubtitle = 'نظام متابعة المصاريف';
   if(STATE.logo === undefined) STATE.logo = null;
   if(!STATE.subscriptions) STATE.subscriptions = [];
