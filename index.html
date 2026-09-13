@@ -1555,12 +1555,27 @@ function unlinkInvoiceFromStudents(num, priceToSubtract){
     if(!nums.includes(String(num))) return;
     nums = nums.filter(n=>n!==String(num));
     s.notes = nums.join(', ');
-    if(s.amount!==null && s.amount!==undefined && s.amount!==""){
-      let newAmount = (parseFloat(s.amount)||0) - (parseFloat(priceToSubtract)||0);
-      if(Math.abs(newAmount) < 0.01) newAmount = nums.length ? 0 : null;
-      s.amount = newAmount;
-    }
+    if(nums.length === 0){ s.amount = null; return; }
+    resyncStudentAmount(s);
   });
+}
+
+// Recomputes a student's amount from scratch, from the current prices of whichever invoices
+// are still actually linked to them — instead of patching the old amount with +/- math, which
+// can drift from reality after several edits. Never touches students with no invoice references
+// in their notes (a purely manual/freeform amount entry).
+function resyncStudentAmount(student){
+  if(!student.notes) return;
+  const nums = String(student.notes).split(',').map(x=>x.trim()).filter(Boolean);
+  const invoiceNums = nums.filter(n=>/^\d+$/.test(n));
+  if(invoiceNums.length === 0) return;
+  const allItems = allItemsFlat();
+  let sum = 0;
+  invoiceNums.forEach(n=>{
+    const it = allItems.find(i=> String(i.num) === n);
+    if(it) sum += (parseFloat(it.price)||0);
+  });
+  student.amount = sum;
 }
 
 function adjustInvoiceAmountForStudents(num, priceDelta){
@@ -2609,9 +2624,8 @@ document.getElementById('item-form-save').addEventListener('click', async ()=>{
     if(oldStudent){
       const nums = (oldStudent.notes||'').split(',').map(x=>x.trim()).filter(Boolean).filter(n=>n!==String(itemNum));
       oldStudent.notes = nums.join(', ');
-      let newAmount = (parseFloat(oldStudent.amount)||0) - itemFormOriginalPrice;
-      if(Math.abs(newAmount) < 0.01) newAmount = nums.length ? 0 : null;
-      oldStudent.amount = newAmount;
+      if(nums.length === 0){ oldStudent.amount = null; }
+      else resyncStudentAmount(oldStudent);
     }
   }
 
@@ -2621,13 +2635,7 @@ document.getElementById('item-form-save').addEventListener('click', async ()=>{
       const nums = (newStudent.notes||'').split(',').map(x=>x.trim()).filter(Boolean);
       if(!nums.includes(String(itemNum))) nums.push(String(itemNum));
       newStudent.notes = nums.join(', ');
-      if(newLinkedIdx === oldLinkedIdx){
-        // Same student stays linked — true-up their amount to the (possibly edited) price exactly.
-        newStudent.amount = (parseFloat(newStudent.amount)||0) - itemFormOriginalPrice + price;
-      } else {
-        // New link entirely: add the full price.
-        newStudent.amount = (parseFloat(newStudent.amount)||0) + price;
-      }
+      resyncStudentAmount(newStudent);
     }
   }
 
