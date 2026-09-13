@@ -488,6 +488,7 @@
     #print-report .pr-sum-budget{ background:#e2efda; color:#375623; }
     #print-report .pr-sum-consumed{ background:#5a5a5a; color:#fff; }
     #print-report .pr-sum-remaining{ background:#dce6f1; color:#1f3864; }
+    #print-report .pr-unpaid-row td{ color:#c00000; font-weight:700; }
 
     #print-report h2{
       background:#2e5f8a; color:#fff;
@@ -1938,6 +1939,13 @@ function renderPrintReport(){
   html += `</table>`;
 
   html += `<h2 class="pr-page-break">حالة رسوم المشتركين</h2>`;
+  const totalSubs = (STATE.subscriptions||[]).reduce((sum,s)=> sum + (parseFloat(s.amount)||0), 0);
+  const paidSubs = (STATE.subscriptions||[]).filter(s=> s.status==='paid' || s.paid===true).reduce((sum,s)=> sum + (parseFloat(s.amount)||0), 0);
+  html += `<div class="pr-summary">
+      <span class="pr-sum-budget">إجمالي الرسوم: ${fmt(totalSubs)}</span>
+      <span class="pr-sum-consumed">المحصّل فعليًا: ${fmt(paidSubs)}</span>
+      <span class="pr-sum-remaining">المتبقي تحصيله: ${fmt(totalSubs-paidSubs)}</span>
+    </div>`;
   html += `<table><tr>
       <th class="pr-right">حالة الدفع</th>
       <th>الرسوم</th>
@@ -1946,21 +1954,14 @@ function renderPrintReport(){
     </tr>`;
   (STATE.subscriptions||[]).forEach((s,i)=>{
     const paid = s.status === 'paid' || s.paid === true;
-    html += `<tr>
+    html += `<tr${paid ? '' : ' class="pr-unpaid-row"'}>
       <td class="pr-right">${paid ? 'مدفوع' : 'غير مدفوع'}</td>
       <td>${fmt(s.amount)}</td>
       <td class="pr-right">${escapeHtml(s.name||'')}</td>
       <td>${i+1}</td>
     </tr>`;
   });
-  const totalSubs = (STATE.subscriptions||[]).reduce((sum,s)=> sum + (parseFloat(s.amount)||0), 0);
-  const paidSubs = (STATE.subscriptions||[]).filter(s=> s.status==='paid' || s.paid===true).reduce((sum,s)=> sum + (parseFloat(s.amount)||0), 0);
   html += `</table>`;
-  html += `<div class="pr-summary">
-      <span class="pr-sum-budget">إجمالي الرسوم: ${fmt(totalSubs)}</span>
-      <span class="pr-sum-consumed">المحصّل فعليًا: ${fmt(paidSubs)}</span>
-      <span class="pr-sum-remaining">المتبقي تحصيله: ${fmt(totalSubs-paidSubs)}</span>
-    </div>`;
 
   html += `<h2 class="pr-page-break">التوزيع حسب البند</h2>`;
   const cats = {};
