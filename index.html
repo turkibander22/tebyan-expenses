@@ -1715,8 +1715,8 @@ document.getElementById('sub-form-save').addEventListener('click', async ()=>{
   }
   STATE.lastSubAmount = amount; // نتذكره لأجل الإضافة الجاية
   document.getElementById('sub-form-modal').classList.remove('open');
-  await saveState();
   render();
+  saveState();
 });
 
 function renderGlobalSummary(){
@@ -1959,8 +1959,8 @@ document.getElementById('clear-all-btn').addEventListener('click', async ()=>{
   STATE.siteSubtitle = keepSubtitle;
   STATE.logo = keepLogo;
   openDays = new Set([0]);
-  await saveState();
   render();
+  saveState();
   alert('تم محو كل البيانات. الميزانية الحين بتتكون تلقائياً من صفحة "الاشتراكات" أول ما تضيف رسوم المشتركين.');
 });
 
@@ -2237,7 +2237,7 @@ document.addEventListener('click', (e)=>{
       if(it) unlinkInvoiceFromStudents(it.num, it.price);
       if(kind==='general') STATE.general.splice(idx,1);
       else STATE.days[dayIndex].items.splice(idx,1);
-      saveState().then(render);
+      render(); saveState();
     }
   }
 
@@ -2258,7 +2258,7 @@ document.addEventListener('click', (e)=>{
   if(delStudent){
     if(confirm('متأكد تبي تحذف هذا المشترك؟')){
       STATE.students.splice(parseInt(delStudent.dataset.delStudent),1);
-      saveState().then(render);
+      render(); saveState();
     }
   }
 
@@ -2269,7 +2269,7 @@ document.addEventListener('click', (e)=>{
   if(delSub){
     if(confirm('متأكد تبي تحذف هذا الاشتراك؟')){
       STATE.subscriptions.splice(parseInt(delSub.dataset.delSub),1);
-      saveState().then(render);
+      render(); saveState();
     }
   }
 
@@ -2278,7 +2278,7 @@ document.addEventListener('click', (e)=>{
     const idx = parseInt(toggleSub.dataset.toggleSubStatus);
     const s = STATE.subscriptions[idx];
     s.status = s.status==='paid' ? 'unpaid' : 'paid';
-    saveState().then(render);
+    render(); saveState();
   }
 
   const editDateBtn = e.target.closest('[data-edit-date]');
@@ -2288,7 +2288,7 @@ document.addEventListener('click', (e)=>{
     const newDate = prompt('التاريخ لهذا اليوم (اتركه فاضي عشان يرجع "لقاء" بدون تاريخ):', current);
     if(newDate !== null){
       STATE.days[i].date = newDate.trim() || null;
-      saveState().then(render);
+      render(); saveState();
     }
   }
 
@@ -2297,7 +2297,7 @@ document.addEventListener('click', (e)=>{
     const nextIndex = STATE.days.length;
     STATE.days.push({day_index: nextIndex, items: [], date: null});
     openDays.add(nextIndex);
-    saveState().then(render);
+    render(); saveState();
   }
 });
 
@@ -2346,8 +2346,8 @@ document.getElementById('import-excel-input').addEventListener('change', functio
       });
 
       if(added>0) STATE.lastSubAmount = STATE.subscriptions[STATE.subscriptions.length-1].amount;
-      await saveState();
       render();
+      saveState();
       alert(`تم استيراد ${added} مشترك جديد.` + (skippedDup? ` (تجاهلت ${skippedDup} مكرر)`:'') + (skippedBad? ` (تجاهلت ${skippedBad} صف مو بصيغة صحيحة)`:''));
     }catch(e){
       console.error(e);
@@ -2375,8 +2375,8 @@ document.getElementById('logo-file-input').addEventListener('change', function()
   const reader = new FileReader();
   reader.onload = async function(ev){
     STATE.logo = ev.target.result;
-    await saveState();
     render();
+    saveState();
   };
   reader.readAsDataURL(file);
   this.value = '';
@@ -2384,23 +2384,23 @@ document.getElementById('logo-file-input').addEventListener('change', function()
 document.getElementById('remove-logo-btn').addEventListener('click', async ()=>{
   if(!confirm('تبي تشيل الشعار؟')) return;
   STATE.logo = null;
-  await saveState();
   render();
+  saveState();
 });
 document.getElementById('edit-title-btn').addEventListener('click', async ()=>{
   const newTitle = prompt('العنوان الجديد:', STATE.siteTitle);
   if(newTitle !== null && newTitle.trim()){
     STATE.siteTitle = newTitle.trim();
-    await saveState();
     render();
+    saveState();
   }
 });
 document.getElementById('edit-subtitle-btn').addEventListener('click', async ()=>{
   const newSub = prompt('الوصف الجديد:', STATE.siteSubtitle);
   if(newSub !== null){
     STATE.siteSubtitle = newSub.trim();
-    await saveState();
     render();
+    saveState();
   }
 });
 
@@ -2438,8 +2438,8 @@ document.getElementById('upload-save-btn').addEventListener('click', async ()=>{
     const it = ctx.kind==='general' ? STATE.general[idx] : STATE.days[ctx.dayIndex].items[idx];
     if(it){
       STATE.images[String(it.num)] = dataUrl;
-      await saveState();
       render();
+      saveState();
     }
     closeUploadModal();
   };
@@ -2648,8 +2648,8 @@ document.getElementById('item-form-save').addEventListener('click', async ()=>{
   const wasAdd = !itemFormExisting;
   const ctxForNext = itemFormCtx;
 
-  await saveState();
   render();
+  saveState();
 
   if(wasAdd && ctxForNext && ctxForNext.kind==='day'){
     // Keep the flow going: reopen a fresh "add" form for the same day so
@@ -2675,7 +2675,7 @@ function openStudentForm(idx){
     const nextM = STATE.students.length ? Math.max(...STATE.students.map(s=>s.m||0))+1 : 1;
     STATE.students.push({m: nextM, name, amount, notes});
   }
-  saveState().then(render);
+  render(); saveState();
 }
 
 // ---------- init ----------
