@@ -576,13 +576,24 @@
     <input type="password" id="login-pass" placeholder="الرمز" autocomplete="current-password">
     <button id="login-submit">دخول</button>
     <div class="login-error" id="login-error">اسم المستخدم أو الرمز غير صحيح</div>
+    <button class="link-btn" id="show-forgot-btn" type="button">نسيت الرمز؟</button>
     <button class="link-btn" id="show-register-btn" type="button">مستخدم جديد؟ أنشئ حساب</button>
+  </div>
+
+  <div class="login-box hidden" id="gate-view-forgot">
+    <h2>استعادة الرمز</h2>
+    <p>اكتب اسم المستخدم، وبنرسل لك رابط تغيير الرمز على بريدك الإلكتروني المسجّل</p>
+    <input type="text" id="forgot-user" placeholder="اسم المستخدم" autocomplete="username">
+    <button id="forgot-submit">إرسال رابط الاستعادة</button>
+    <div class="login-error" id="forgot-error"></div>
+    <button class="link-btn" id="forgot-back-btn" type="button">رجوع لتسجيل الدخول</button>
   </div>
 
   <div class="login-box hidden" id="gate-view-register">
     <h2>إنشاء حساب جديد</h2>
     <p>بعد الإرسال، يراجع المشرف طلبك قبل ما تقدر تدخل</p>
     <input type="text" id="reg-user" placeholder="اسم المستخدم (حروف إنجليزية وأرقام)" autocomplete="username">
+    <input type="email" id="reg-email" placeholder="بريدك الإلكتروني (لاستعادة الرمز عند نسيانه)" autocomplete="email">
     <input type="password" id="reg-pass" placeholder="الرمز" autocomplete="new-password">
     <input type="password" id="reg-pass2" placeholder="تأكيد الرمز" autocomplete="new-password">
     <input type="tel" id="reg-phone" placeholder="رقم الهاتف">
@@ -610,6 +621,7 @@
     <p>إدارة حسابات الأدمن وطلبات التسجيل</p>
     <button class="tab-btn logout-btn" id="dash-logout-btn" style="margin-top:14px;">🚪 تسجيل الخروج</button>
     <button class="tab-btn backup-btn" id="dash-change-pass-btn" style="margin-top:14px;">🔑 تغيير الرمز</button>
+    <button class="tab-btn backup-btn" id="dash-link-email-btn" style="margin-top:14px;">🔗 ربط بريد لاستعادة الرمز</button>
   </header>
   <main>
     <div class="section-title">الحسابات</div>
@@ -671,6 +683,7 @@
   <input type="file" id="import-backup-input" accept="application/json" style="display:none;">
   <button class="tab-btn logout-btn" id="clear-all-btn" style="background:rgba(217,83,79,.12); border-color:#d9534f; color:#e07a77;">🗑️ محو كل البيانات</button>
   <button class="tab-btn backup-btn" id="change-pass-btn">🔑 تغيير الرمز</button>
+  <button class="tab-btn backup-btn" id="link-email-btn">🔗 ربط بريد لاستعادة الرمز</button>
   <button class="tab-btn logout-btn" id="logout-btn" style="display:none;">🚪 تسجيل الخروج</button>
 </div>
 
@@ -898,7 +911,7 @@ function readOnlyMode(){ return false; }
 function usernameToEmail(u){ return u.trim().toLowerCase() + '@' + AUTH_EMAIL_DOMAIN; }
 
 function showGateView(view){
-  ['login','register','pending','rejected'].forEach(v=>{
+  ['login','register','pending','rejected','forgot'].forEach(v=>{
     document.getElementById('gate-view-'+v).classList.toggle('hidden', v!==view);
   });
   document.getElementById('login-gate').classList.remove('hidden');
@@ -907,6 +920,8 @@ function hideGate(){ document.getElementById('login-gate').classList.add('hidden
 
 document.getElementById('show-register-btn')?.addEventListener('click', ()=> showGateView('register'));
 document.getElementById('show-login-btn')?.addEventListener('click', ()=> showGateView('login'));
+document.getElementById('show-forgot-btn')?.addEventListener('click', ()=> showGateView('forgot'));
+document.getElementById('forgot-back-btn')?.addEventListener('click', ()=> showGateView('login'));
 document.getElementById('pending-back-btn')?.addEventListener('click', async ()=>{ await fbAuth.signOut(); showGateView('login'); });
 document.getElementById('rejected-back-btn')?.addEventListener('click', async ()=>{ await fbAuth.signOut(); showGateView('login'); });
 
@@ -919,7 +934,8 @@ async function doLogin(){
   errEl.style.display = 'none';
   if(!u || !p){ errEl.textContent = 'أدخل اسم المستخدم والرمز'; errEl.style.display='block'; return; }
   try{
-    await fbAuth.signInWithEmailAndPassword(usernameToEmail(u), p);
+    const email = await resolveEmailForUsername(u);
+    await fbAuth.signInWithEmailAndPassword(email, p);
     // onAuthStateChanged below takes it from here
   }catch(e){
     errEl.textContent = 'اسم المستخدم أو الرمز غير صحيح';
@@ -927,30 +943,62 @@ async function doLogin(){
   }
 }
 
+// Looks up the real email behind a username (new accounts), falling back to the old
+// fake-domain scheme for accounts created before this feature existed.
+async function resolveEmailForUsername(u){
+  try{
+    const snap = await fbDb.ref('usernameEmailMap/' + u).get();
+    if(snap.exists()) return snap.val();
+  }catch(e){ /* fall through to legacy scheme */ }
+  return usernameToEmail(u);
+}
+
+document.getElementById('forgot-submit')?.addEventListener('click', async ()=>{
+  const u = document.getElementById('forgot-user').value.trim();
+  const errEl = document.getElementById('forgot-error');
+  errEl.style.display = 'none';
+  if(!u){ errEl.textContent = 'أدخل اسم المستخدم'; errEl.style.display='block'; return; }
+  try{
+    const email = await resolveEmailForUsername(u);
+    await fbAuth.sendPasswordResetEmail(email);
+    errEl.style.color = 'var(--teal-light)';
+    errEl.textContent = 'تم إرسال رابط تغيير الرمز إلى بريدك الإلكتروني (لو الحساب مربوط ببريد فعلي).';
+    errEl.style.display = 'block';
+  }catch(e){
+    errEl.style.color = '';
+    errEl.textContent = 'تعذر إرسال رابط الاستعادة.';
+    errEl.style.display = 'block';
+  }
+});
+
 let IS_REGISTERING = false;
 document.getElementById('register-submit')?.addEventListener('click', doRegister);
 async function doRegister(){
   const u = document.getElementById('reg-user').value.trim();
+  const emailInput = document.getElementById('reg-email').value.trim();
   const p = document.getElementById('reg-pass').value;
   const p2 = document.getElementById('reg-pass2').value;
   const phone = document.getElementById('reg-phone').value.trim();
   const errEl = document.getElementById('register-error');
   errEl.style.display = 'none';
   if(!USERNAME_RE.test(u)){ errEl.textContent = 'اسم المستخدم لازم يكون حروف إنجليزية أو أرقام فقط (٣ إلى ٢٠ رمز)'; errEl.style.display='block'; return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput)){ errEl.textContent = 'أدخل بريد إلكتروني صحيح — يحتاجه النظام لاستعادة الرمز عند نسيانه'; errEl.style.display='block'; return; }
   if(p.length < 6){ errEl.textContent = 'الرمز لازم يكون ٦ أحرف على الأقل'; errEl.style.display='block'; return; }
   if(p !== p2){ errEl.textContent = 'الرمزين غير متطابقين'; errEl.style.display='block'; return; }
   if(!phone){ errEl.textContent = 'أدخل رقم الهاتف'; errEl.style.display='block'; return; }
+  const uKey = u;
   IS_REGISTERING = true; // stops the login listener below from reacting mid-registration
   try{
-    const cred = await fbAuth.createUserWithEmailAndPassword(usernameToEmail(u), p);
+    const cred = await fbAuth.createUserWithEmailAndPassword(emailInput, p);
     await fbDb.ref('accounts/' + cred.user.uid).set({
-      username: u, phone: phone, status: 'pending', createdAt: Date.now()
+      username: u, phone: phone, email: emailInput, status: 'pending', createdAt: Date.now()
     });
+    await fbDb.ref('usernameEmailMap/' + uKey).set(emailInput);
     await fbAuth.signOut();
     showGateView('pending');
   }catch(e){
     console.error('register failed', e);
-    if(e.code === 'auth/email-already-in-use') errEl.textContent = 'اسم المستخدم هذا مستخدم من قبل، اختر اسم آخر';
+    if(e.code === 'auth/email-already-in-use') errEl.textContent = 'هذا البريد الإلكتروني مستخدم من قبل لحساب آخر';
     else if(e.code === 'permission-denied' || e.message?.includes('PERMISSION_DENIED')) errEl.textContent = 'تعذر حفظ الطلب — تأكد إن قواعد الأمان بفايربيس منشورة صح.';
     else errEl.textContent = 'صار خطأ، حاول مرة ثانية';
     errEl.style.display = 'block';
@@ -975,6 +1023,35 @@ function openChangePasswordModal(){
 }
 function closeChangePasswordModal(){
   document.getElementById('change-pass-modal').classList.add('hidden');
+}
+document.getElementById('link-email-btn')?.addEventListener('click', linkRecoveryEmailFlow);
+document.getElementById('dash-link-email-btn')?.addEventListener('click', linkRecoveryEmailFlow);
+async function linkRecoveryEmailFlow(){
+  const newEmail = prompt('أدخل بريدك الإلكتروني الحقيقي (سيُستخدم لاستعادة الرمز عند نسيانه):');
+  if(!newEmail) return;
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)){ alert('بريد إلكتروني غير صحيح.'); return; }
+  const currentPass = prompt('أدخل رمزك الحالي لتأكيد العملية:');
+  if(!currentPass) return;
+  try{
+    const user = fbAuth.currentUser;
+    const cred = firebase.auth.EmailAuthProvider.credential(user.email, currentPass);
+    await user.reauthenticateWithCredential(cred);
+    await user.updateEmail(newEmail);
+    let username = null;
+    if(user.uid === SUPER_ADMIN_UID){
+      username = 'turkisuper';
+    } else {
+      const snap = await fbDb.ref('accounts/' + user.uid + '/username').get();
+      username = snap.exists() ? snap.val() : null;
+    }
+    if(username) await fbDb.ref('usernameEmailMap/' + username).set(newEmail);
+    if(CURRENT_UID && user.uid !== SUPER_ADMIN_UID) await fbDb.ref('accounts/' + CURRENT_UID + '/email').set(newEmail);
+    alert('تم ربط بريدك الإلكتروني بنجاح. تقدر الآن تستخدم "نسيت الرمز؟" لو احتجت.');
+  }catch(e){
+    if(e.code === 'auth/wrong-password') alert('الرمز الحالي غلط.');
+    else if(e.code === 'auth/email-already-in-use') alert('هذا البريد مستخدم من قبل لحساب آخر.');
+    else alert('تعذرت العملية، حاول مرة ثانية.');
+  }
 }
 document.getElementById('cp-submit')?.addEventListener('click', async ()=>{
   const cur = document.getElementById('cp-current').value;
