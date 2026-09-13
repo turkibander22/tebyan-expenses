@@ -691,7 +691,7 @@
 <div id="access-request-modal" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:3000; display:flex; align-items:center; justify-content:center; padding:20px;">
   <div class="login-box">
     <h2>🔐 طلب دخول</h2>
-    <p>السوبر أدمن (turkisuper) يطلب الدخول لحسابك ومشاهدة بياناتك. هل توافق؟</p>
+    <p>الإدارة تطلب الدخول لحسابك ومشاهدة بياناتك. هل توافق؟</p>
     <button id="ar-approve-btn" style="background:var(--teal);">✔️ موافقة</button>
     <button id="ar-reject-btn" style="background:var(--red); margin-top:10px;">✖️ رفض</button>
   </div>
@@ -766,11 +766,6 @@
   <section class="page active" id="page-home">
     <div class="section-title">أهم المعلومات</div>
     <div class="cards-row">
-      <div class="stat-card budget" data-goto="daily" style="cursor:pointer;"><div class="label">الميزانية الأصلية</div><div class="value" id="home-budget">-</div></div>
-      <div class="stat-card consumed" data-goto="daily" style="cursor:pointer;"><div class="label">إجمالي الاستهلاك</div><div class="value" id="home-consumed">-</div></div>
-      <div class="stat-card remaining" data-goto="daily" style="cursor:pointer;"><div class="label">المتبقي</div><div class="value" id="home-remaining">-</div></div>
-    </div>
-    <div class="cards-row" style="margin-top:14px;">
       <div class="stat-card budget" data-goto="students" style="cursor:pointer;"><div class="label">عدد استرداد المبالغ</div><div class="value" id="home-refund-count">-</div></div>
       <div class="stat-card consumed" data-goto="students" style="cursor:pointer;"><div class="label">إجمالي المبالغ المطلوب استردادها</div><div class="value" id="home-refund-total">-</div></div>
       <div class="stat-card remaining" data-goto="subs" style="cursor:pointer;"><div class="label">حالة الاشتراكات (مدفوع/الكل)</div><div class="value" id="home-subs-status">-</div></div>
@@ -1163,6 +1158,7 @@ fbAuth.onAuthStateChanged(async (user)=>{
   if(IS_REGISTERING) return; // doRegister() is handling its own UI right now
   detachLiveDataListener();
   detachAccessRequestListener();
+  detachAccountsListListener();
   if(!user){
     CURRENT_UID = null; CURRENT_ROLE = null; IS_IMPERSONATING = false;
     document.getElementById('app-root').classList.add('hidden');
@@ -1205,19 +1201,25 @@ fbAuth.onAuthStateChanged(async (user)=>{
 async function openSuperDashboard(){
   document.getElementById('super-dashboard').classList.remove('hidden');
   document.getElementById('logout-btn').style.display = 'none';
-  await renderAccountsList();
+  attachAccountsListListener();
 }
-async function renderAccountsList(){
+let ACCOUNTS_LIST_REF = null;
+function attachAccountsListListener(){
+  detachAccountsListListener();
   const listEl = document.getElementById('dash-accounts-list');
   listEl.innerHTML = '<div class="empty-note">جارٍ التحميل...</div>';
-  let accounts = {};
-  try{
-    const snap = await fbDb.ref('accounts').get();
-    accounts = snap.exists() ? snap.val() : {};
-  }catch(e){
+  ACCOUNTS_LIST_REF = fbDb.ref('accounts');
+  ACCOUNTS_LIST_REF.on('value', (snap)=>{
+    renderAccountsListFromData(snap.exists() ? snap.val() : {});
+  }, ()=>{
     listEl.innerHTML = '<div class="empty-note">تعذر تحميل الحسابات.</div>';
-    return;
-  }
+  });
+}
+function detachAccountsListListener(){
+  if(ACCOUNTS_LIST_REF){ ACCOUNTS_LIST_REF.off(); ACCOUNTS_LIST_REF = null; }
+}
+function renderAccountsListFromData(accounts){
+  const listEl = document.getElementById('dash-accounts-list');
   const entries = Object.entries(accounts);
   if(entries.length === 0){ listEl.innerHTML = '<div class="empty-note">لا يوجد أي حسابات بعد.</div>'; return; }
   const statusLabel = {pending:'بانتظار الموافقة', approved:'مفعّل', rejected:'مرفوض'};
@@ -1260,7 +1262,6 @@ async function renderAccountsList(){
 async function requestAccess(uid){
   try{
     await fbDb.ref('accounts/' + uid + '/accessRequest').set({status:'pending', requestedAt: Date.now()});
-    await renderAccountsList();
   }catch(e){
     alert('تعذر إرسال الطلب.');
   }
@@ -1270,16 +1271,17 @@ async function deleteAccount(uid, username){
   if(!confirm('تأكيد أخير: الحذف نهائي ولا يمكن التراجع عنه. متأكد ١٠٠٪؟')) return;
   try{
     await fbDb.ref('accounts/' + uid).remove();
-    await renderAccountsList();
   }catch(e){
     alert('تعذر حذف الحساب.');
   }
 }
+
 async function setAccountStatus(uid, status){
-  try{ await fbDb.ref('accounts/' + uid + '/status').set(status); await renderAccountsList(); }
+  try{ await fbDb.ref('accounts/' + uid + '/status').set(status); }
   catch(e){ alert('تعذر تحديث الحساب.'); }
 }
 async function enterAdminView(uid){
+  detachAccountsListListener();
   CURRENT_UID = uid; CURRENT_ROLE = 'super'; IS_IMPERSONATING = true;
   document.getElementById('super-dashboard').classList.add('hidden');
   document.getElementById('app-root').classList.remove('hidden');
@@ -1410,8 +1412,8 @@ function superEditNoticeText(){
   const activeBtn = document.querySelector('.tab-btn[data-page].active');
   const page = activeBtn ? (PAGE_LABELS[activeBtn.dataset.page] || activeBtn.dataset.page) : null;
   return page
-    ? `قام الحساب الرئيسي (turkisuper) بتعديل بيانات صفحة "${page}"`
-    : 'تم تعديل بياناتك من قبل الحساب الرئيسي (turkisuper)';
+    ? `قامت الإدارة بتعديل بيانات صفحة "${page}"`
+    : 'تم تعديل بياناتك من قبل الإدارة';
 }
 async function storageSet(value){  if(!CURRENT_UID) return false;
   try{ localStorage.setItem('state-cache-' + CURRENT_UID, value); }catch(e){}
@@ -1708,12 +1710,6 @@ function renderGlobalSummary(){
 }
 
 function renderHome(){
-  const budget = computeBudget();
-  const consumed = computeConsumed();
-  document.getElementById('home-budget').textContent = fmt(budget);
-  document.getElementById('home-consumed').textContent = fmt(consumed);
-  document.getElementById('home-remaining').textContent = fmt(budget - consumed);
-
   const withDebt = STATE.students.filter(hasDebt);
   const refundTotal = withDebt.reduce((sum,s)=> sum + (parseFloat(s.amount)||0), 0);
   document.getElementById('home-refund-count').textContent = withDebt.length;
