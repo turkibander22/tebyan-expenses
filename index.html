@@ -1937,6 +1937,31 @@ function renderPrintReport(){
   });
   html += `</table>`;
 
+  html += `<h2 class="pr-page-break">حالة رسوم المشتركين</h2>`;
+  html += `<table><tr>
+      <th class="pr-right">حالة الدفع</th>
+      <th>الرسوم</th>
+      <th class="pr-right">الاسم</th>
+      <th>م</th>
+    </tr>`;
+  (STATE.subscriptions||[]).forEach((s,i)=>{
+    const paid = s.status === 'paid' || s.paid === true;
+    html += `<tr>
+      <td class="pr-right">${paid ? 'مدفوع' : 'غير مدفوع'}</td>
+      <td>${fmt(s.amount)}</td>
+      <td class="pr-right">${escapeHtml(s.name||'')}</td>
+      <td>${i+1}</td>
+    </tr>`;
+  });
+  const totalSubs = (STATE.subscriptions||[]).reduce((sum,s)=> sum + (parseFloat(s.amount)||0), 0);
+  const paidSubs = (STATE.subscriptions||[]).filter(s=> s.status==='paid' || s.paid===true).reduce((sum,s)=> sum + (parseFloat(s.amount)||0), 0);
+  html += `</table>`;
+  html += `<div class="pr-summary">
+      <span class="pr-sum-budget">إجمالي الرسوم: ${fmt(totalSubs)}</span>
+      <span class="pr-sum-consumed">المحصّل فعليًا: ${fmt(paidSubs)}</span>
+      <span class="pr-sum-remaining">المتبقي تحصيله: ${fmt(totalSubs-paidSubs)}</span>
+    </div>`;
+
   html += `<h2 class="pr-page-break">التوزيع حسب البند</h2>`;
   const cats = {};
   allItemsFlat().forEach(it=>{
