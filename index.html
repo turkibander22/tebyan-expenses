@@ -464,6 +464,53 @@
   /* ---------- PRINT REPORT (mirrors the Excel sheet layout) ---------- */
   #print-report{ display:none; }
 
+  @media (max-width: 640px){
+    header{ padding:18px 12px 12px; }
+    header h1{ font-size:1.15rem; }
+    header p{ font-size:.8rem; }
+    #site-logo{ max-height:50px !important; max-width:150px !important; }
+
+    nav.tabs{ gap:6px; margin:12px auto 16px; padding:0 8px; }
+    nav.tabs button{ padding:8px 12px; font-size:.8rem; }
+
+    main{ padding:0 10px; }
+    .section-title{ padding:9px 12px; font-size:.88rem; margin:16px 0 10px; }
+
+    .cards-row{ grid-template-columns:repeat(2, 1fr); gap:8px; margin-bottom:16px; }
+    .stat-card{ padding:12px; }
+    .stat-card .label{ font-size:.72rem; margin-bottom:4px; }
+    .stat-card .value{ font-size:1.05rem; }
+
+    .day-block{ margin-bottom:10px; }
+    .day-head{ padding:10px 12px; }
+    .day-head .dtitle{ font-size:.9rem; }
+    .day-head .dsub{ font-size:.72rem; }
+    .day-body{ padding:10px 12px 14px; }
+
+    .day-block, #page-students, #page-subs, #page-stats{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    table.exp-table, table.students-table{ font-size:.76rem; min-width:520px; }
+    table.exp-table th, table.exp-table td,
+    table.students-table th, table.students-table td{ padding:6px 5px; }
+    .thumb{ width:32px; height:32px; }
+
+    .add-row-btn, .tab-btn, button{ min-height:40px; }
+    .form-modal-box, .login-box, .modal-box{ padding:16px; max-width:94vw; }
+    .form-field select, .form-field input, .login-box input{ padding:11px 10px; font-size:16px; }
+    .form-actions{ flex-direction:column; }
+    .form-actions button{ width:100%; }
+
+    #theme-toggle-btn{ width:36px; height:36px; font-size:.95rem; top:8px; left:8px; }
+
+    .account-card{ flex-direction:column; align-items:flex-start; gap:10px; }
+    .acc-actions{ width:100%; }
+    .acc-actions button{ flex:1; }
+
+    #impersonation-banner, #notif-banner{ flex-direction:column; align-items:stretch; text-align:center; margin:10px auto 0; }
+
+    .stats-flex{ gap:14px; }
+    .donut-wrap, .donut{ width:150px; height:150px; }
+  }
+
   @media print{
     @page{ size: A4 portrait; margin: 12mm 10mm; }
     body{
@@ -578,7 +625,19 @@
     <button id="login-submit">دخول</button>
     <div class="login-error" id="login-error">اسم المستخدم أو الرمز غير صحيح</div>
     <button class="link-btn" id="show-forgot-btn" type="button">نسيت الرمز؟</button>
+    <button class="link-btn" id="show-link-email-btn" type="button">🔗 ربط بريد لاستعادة الرمز</button>
     <button class="link-btn" id="show-register-btn" type="button">مستخدم جديد؟ أنشئ حساب</button>
+  </div>
+
+  <div class="login-box hidden" id="gate-view-linkemail">
+    <h2>ربط بريد لاستعادة الرمز</h2>
+    <p>يثبّت بريدك الإلكتروني بحسابك عشان تقدر تسترجع الرمز لو نسيته لاحقًا</p>
+    <input type="text" id="le-user" placeholder="اسم المستخدم" autocomplete="username">
+    <input type="password" id="le-pass" placeholder="الرمز الحالي" autocomplete="current-password">
+    <input type="email" id="le-email" placeholder="بريدك الإلكتروني" autocomplete="email">
+    <button id="le-submit">ربط البريد</button>
+    <div class="login-error" id="le-error"></div>
+    <button class="link-btn" id="le-back-btn" type="button">رجوع لتسجيل الدخول</button>
   </div>
 
   <div class="login-box hidden" id="gate-view-forgot">
@@ -622,12 +681,20 @@
     <p>إدارة حسابات الأدمن وطلبات التسجيل</p>
     <button class="tab-btn logout-btn" id="dash-logout-btn" style="margin-top:14px;">🚪 تسجيل الخروج</button>
     <button class="tab-btn backup-btn" id="dash-change-pass-btn" style="margin-top:14px;">🔑 تغيير الرمز</button>
-    <button class="tab-btn backup-btn" id="dash-link-email-btn" style="margin-top:14px;">🔗 ربط بريد لاستعادة الرمز</button>
   </header>
   <main>
     <div class="section-title">الحسابات</div>
     <div id="dash-accounts-list"></div>
   </main>
+</div>
+
+<div id="access-request-modal" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:3000; display:flex; align-items:center; justify-content:center; padding:20px;">
+  <div class="login-box">
+    <h2>🔐 طلب دخول</h2>
+    <p>السوبر أدمن (turkisuper) يطلب الدخول لحسابك ومشاهدة بياناتك. هل توافق؟</p>
+    <button id="ar-approve-btn" style="background:var(--teal);">✔️ موافقة</button>
+    <button id="ar-reject-btn" style="background:var(--red); margin-top:10px;">✖️ رفض</button>
+  </div>
 </div>
 
 <div id="change-pass-modal" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:3000; display:flex; align-items:center; justify-content:center; padding:20px;">
@@ -671,7 +738,7 @@
 <nav class="tabs">
   <button class="tab-btn active" data-page="home">الرئيسية</button>
   <button class="tab-btn" data-page="daily">المصاريف اليومية</button>
-  <button class="tab-btn" data-page="students">المشتركين</button>
+  <button class="tab-btn" data-page="students">استرداد المبالغ</button>
   <button class="tab-btn" data-page="subs">الاشتراكات</button>
   <button class="tab-btn" data-page="stats">الإحصائيات</button>
   <button class="tab-btn more-btn" id="more-menu-btn">⚙️ المزيد</button>
@@ -684,7 +751,6 @@
   <input type="file" id="import-backup-input" accept="application/json" style="display:none;">
   <button class="tab-btn logout-btn" id="clear-all-btn" style="background:rgba(217,83,79,.12); border-color:#d9534f; color:#e07a77;">🗑️ محو كل البيانات</button>
   <button class="tab-btn backup-btn" id="change-pass-btn">🔑 تغيير الرمز</button>
-  <button class="tab-btn backup-btn" id="link-email-btn">🔗 ربط بريد لاستعادة الرمز</button>
   <button class="tab-btn logout-btn" id="logout-btn" style="display:none;">🚪 تسجيل الخروج</button>
 </div>
 
@@ -698,11 +764,16 @@
 
   <!-- HOME -->
   <section class="page active" id="page-home">
-    <div class="section-title">تنقل سريع</div>
-    <div class="quick-links">
-      <div class="qcard" data-goto="daily"><div class="ic">📅</div><div class="t">المصاريف اليومية</div><div class="d">تفاصيل كل يوم من ١/٨ إلى ١٤/٨ مع صور الفواتير</div></div>
-      <div class="qcard" data-goto="students"><div class="ic">👥</div><div class="t">المشتركين</div><div class="d">مبلغ الاسترداد لكل مشترك وربطه بالفاتورة</div></div>
-      <div class="qcard" data-goto="stats"><div class="ic">📊</div><div class="t">الإحصائيات</div><div class="d">توزيع المصاريف حسب البند والملخص المالي</div></div>
+    <div class="section-title">أهم المعلومات</div>
+    <div class="cards-row">
+      <div class="stat-card budget" data-goto="daily" style="cursor:pointer;"><div class="label">الميزانية الأصلية</div><div class="value" id="home-budget">-</div></div>
+      <div class="stat-card consumed" data-goto="daily" style="cursor:pointer;"><div class="label">إجمالي الاستهلاك</div><div class="value" id="home-consumed">-</div></div>
+      <div class="stat-card remaining" data-goto="daily" style="cursor:pointer;"><div class="label">المتبقي</div><div class="value" id="home-remaining">-</div></div>
+    </div>
+    <div class="cards-row" style="margin-top:14px;">
+      <div class="stat-card budget" data-goto="students" style="cursor:pointer;"><div class="label">عدد استرداد المبالغ</div><div class="value" id="home-refund-count">-</div></div>
+      <div class="stat-card consumed" data-goto="students" style="cursor:pointer;"><div class="label">إجمالي المبالغ المطلوب استردادها</div><div class="value" id="home-refund-total">-</div></div>
+      <div class="stat-card remaining" data-goto="subs" style="cursor:pointer;"><div class="label">حالة الاشتراكات (مدفوع/الكل)</div><div class="value" id="home-subs-status">-</div></div>
     </div>
   </section>
 
@@ -723,7 +794,7 @@
   <!-- STUDENTS -->
   <section class="page" id="page-students">
     <div class="section-title">
-      <span>قائمة المشتركين واسترداد المبالغ</span>
+      <span>قائمة استرداد المبالغ</span>
       <button class="add-row-btn" id="add-student-btn" style="margin:0;">+ إضافة مشترك</button>
     </div>
     <table class="students-table">
@@ -912,7 +983,7 @@ function readOnlyMode(){ return false; }
 function usernameToEmail(u){ return u.trim().toLowerCase() + '@' + AUTH_EMAIL_DOMAIN; }
 
 function showGateView(view){
-  ['login','register','pending','rejected','forgot'].forEach(v=>{
+  ['login','register','pending','rejected','forgot','linkemail'].forEach(v=>{
     document.getElementById('gate-view-'+v).classList.toggle('hidden', v!==view);
   });
   document.getElementById('login-gate').classList.remove('hidden');
@@ -1025,33 +1096,45 @@ function openChangePasswordModal(){
 function closeChangePasswordModal(){
   document.getElementById('change-pass-modal').classList.add('hidden');
 }
-document.getElementById('link-email-btn')?.addEventListener('click', linkRecoveryEmailFlow);
-document.getElementById('dash-link-email-btn')?.addEventListener('click', linkRecoveryEmailFlow);
+document.getElementById('show-link-email-btn')?.addEventListener('click', ()=> showGateView('linkemail'));
+document.getElementById('le-back-btn')?.addEventListener('click', ()=> showGateView('login'));
+document.getElementById('le-submit')?.addEventListener('click', linkRecoveryEmailFlow);
 async function linkRecoveryEmailFlow(){
-  const newEmail = prompt('أدخل بريدك الإلكتروني الحقيقي (سيُستخدم لاستعادة الرمز عند نسيانه):');
-  if(!newEmail) return;
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)){ alert('بريد إلكتروني غير صحيح.'); return; }
-  const currentPass = prompt('أدخل رمزك الحالي لتأكيد العملية:');
-  if(!currentPass) return;
+  const u = document.getElementById('le-user').value.trim();
+  const currentPass = document.getElementById('le-pass').value;
+  const newEmail = document.getElementById('le-email').value.trim();
+  const errEl = document.getElementById('le-error');
+  errEl.style.display = 'none';
+  if(!u || !currentPass){ errEl.textContent = 'أدخل اسم المستخدم والرمز الحالي'; errEl.style.display='block'; return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)){ errEl.textContent = 'أدخل بريد إلكتروني صحيح'; errEl.style.display='block'; return; }
+  IS_REGISTERING = true; // stop the login listener from reacting to this temporary sign-in
   try{
-    const user = fbAuth.currentUser;
-    const cred = firebase.auth.EmailAuthProvider.credential(user.email, currentPass);
-    await user.reauthenticateWithCredential(cred);
-    await user.updateEmail(newEmail);
-    let username = null;
-    if(user.uid === SUPER_ADMIN_UID){
-      username = 'turkisuper';
-    } else {
-      const snap = await fbDb.ref('accounts/' + user.uid + '/username').get();
-      username = snap.exists() ? snap.val() : null;
+    const signInEmail = await resolveEmailForUsername(u);
+    const cred = await fbAuth.signInWithEmailAndPassword(signInEmail, currentPass);
+    const user = cred.user;
+    if(newEmail !== signInEmail){
+      await user.updateEmail(newEmail);
     }
-    if(username) await fbDb.ref('usernameEmailMap/' + username).set(newEmail);
-    if(CURRENT_UID && user.uid !== SUPER_ADMIN_UID) await fbDb.ref('accounts/' + CURRENT_UID + '/email').set(newEmail);
-    alert('تم ربط بريدك الإلكتروني بنجاح. تقدر الآن تستخدم "نسيت الرمز؟" لو احتجت.');
+    let username = (user.uid === SUPER_ADMIN_UID) ? 'turkisuper' : null;
+    if(!username){
+      const snap = await fbDb.ref('accounts/' + user.uid + '/username').get();
+      username = snap.exists() ? snap.val() : u;
+    }
+    await fbDb.ref('usernameEmailMap/' + username).set(newEmail);
+    if(user.uid !== SUPER_ADMIN_UID) await fbDb.ref('accounts/' + user.uid + '/email').set(newEmail);
+    await fbAuth.signOut();
+    errEl.style.color = 'var(--teal-light)';
+    errEl.textContent = 'تم ربط بريدك بنجاح. تقدر الآن تستخدم "نسيت الرمز؟" عند الحاجة.';
+    errEl.style.display = 'block';
   }catch(e){
-    if(e.code === 'auth/wrong-password') alert('الرمز الحالي غلط.');
-    else if(e.code === 'auth/email-already-in-use') alert('هذا البريد مستخدم من قبل لحساب آخر.');
-    else alert('تعذرت العملية، حاول مرة ثانية.');
+    errEl.style.color = '';
+    if(e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found') errEl.textContent = 'اسم المستخدم أو الرمز غير صحيح';
+    else if(e.code === 'auth/email-already-in-use') errEl.textContent = 'هذا البريد مستخدم من قبل لحساب آخر';
+    else errEl.textContent = 'صار خطأ، حاول مرة ثانية';
+    errEl.style.display = 'block';
+    try{ await fbAuth.signOut(); }catch(e2){}
+  } finally {
+    IS_REGISTERING = false;
   }
 }
 document.getElementById('cp-submit')?.addEventListener('click', async ()=>{
@@ -1079,6 +1162,7 @@ document.getElementById('cp-submit')?.addEventListener('click', async ()=>{
 fbAuth.onAuthStateChanged(async (user)=>{
   if(IS_REGISTERING) return; // doRegister() is handling its own UI right now
   detachLiveDataListener();
+  detachAccessRequestListener();
   if(!user){
     CURRENT_UID = null; CURRENT_ROLE = null; IS_IMPERSONATING = false;
     document.getElementById('app-root').classList.add('hidden');
@@ -1114,6 +1198,7 @@ fbAuth.onAuthStateChanged(async (user)=>{
   render();
   await showAdminNotifications();
   attachLiveDataListener();
+  attachAccessRequestListener();
 });
 
 // ---------- Super Admin dashboard ----------
@@ -1142,7 +1227,16 @@ async function renderAccountsList(){
     if(acc.status === 'pending'){
       actions = `<button class="approve-btn" data-uid="${uid}">✔️ قبول</button><button class="reject-btn" data-uid="${uid}">✖️ رفض</button>`;
     } else if(acc.status === 'approved'){
-      actions = `<button class="enter-btn" data-uid="${uid}">👁️ دخول كـ ${escapeHtml(acc.username||'')}</button><button class="reject-btn" data-uid="${uid}">🚫 تعليق الحساب</button>`;
+      const ar = acc.accessRequest;
+      if(!ar || ar.status === 'rejected'){
+        actions = `<button class="request-btn" data-uid="${uid}">🔐 طلب الدخول إلى الحساب</button>`;
+        if(ar && ar.status === 'rejected') actions = `<span class="status-badge rejected" style="margin-left:6px;">الأدمن رفض آخر طلب</span>` + actions;
+      } else if(ar.status === 'pending'){
+        actions = `<span class="status-badge pending">⏳ بانتظار موافقة الأدمن</span>`;
+      } else if(ar.status === 'approved'){
+        actions = `<button class="enter-btn" data-uid="${uid}">👁️ دخول إلى الحساب</button>`;
+      }
+      actions += `<button class="reject-btn" data-uid="${uid}">🚫 تعليق الحساب</button>`;
     } else {
       actions = `<button class="approve-btn" data-uid="${uid}">✔️ إعادة تفعيل</button>`;
     }
@@ -1160,7 +1254,16 @@ async function renderAccountsList(){
   listEl.querySelectorAll('.approve-btn').forEach(b=> b.addEventListener('click', ()=> setAccountStatus(b.dataset.uid, 'approved')));
   listEl.querySelectorAll('.reject-btn').forEach(b=> b.addEventListener('click', ()=> setAccountStatus(b.dataset.uid, 'rejected')));
   listEl.querySelectorAll('.enter-btn').forEach(b=> b.addEventListener('click', ()=> enterAdminView(b.dataset.uid)));
+  listEl.querySelectorAll('.request-btn').forEach(b=> b.addEventListener('click', ()=> requestAccess(b.dataset.uid)));
   listEl.querySelectorAll('.delete-btn').forEach(b=> b.addEventListener('click', ()=> deleteAccount(b.dataset.uid, b.dataset.username)));
+}
+async function requestAccess(uid){
+  try{
+    await fbDb.ref('accounts/' + uid + '/accessRequest').set({status:'pending', requestedAt: Date.now()});
+    await renderAccountsList();
+  }catch(e){
+    alert('تعذر إرسال الطلب.');
+  }
 }
 async function deleteAccount(uid, username){
   if(!confirm(`⚠️ بيتم حذف حساب "${username || uid}" وكل بياناته (مصاريف، مشتركين، اشتراكات) نهائيًا من النظام. ما فيه رجعة إلا لو عندك نسخة احتياطية. متأكد تبي تكمل؟`)) return;
@@ -1231,6 +1334,36 @@ async function showAdminNotifications(){
   };
 }
 
+// ---------- Access-request: admin must approve before the super admin can view/edit their data ----------
+let ACCESS_REQUEST_REF = null;
+function attachAccessRequestListener(){
+  detachAccessRequestListener();
+  if(!CURRENT_UID) return;
+  ACCESS_REQUEST_REF = fbDb.ref('accounts/' + CURRENT_UID + '/accessRequest');
+  ACCESS_REQUEST_REF.on('value', (snap)=>{
+    const ar = snap.exists() ? snap.val() : null;
+    if(ar && ar.status === 'pending'){
+      document.getElementById('access-request-modal').classList.remove('hidden');
+    } else {
+      document.getElementById('access-request-modal').classList.add('hidden');
+    }
+  });
+}
+function detachAccessRequestListener(){
+  if(ACCESS_REQUEST_REF){ ACCESS_REQUEST_REF.off(); ACCESS_REQUEST_REF = null; }
+}
+document.getElementById('ar-approve-btn')?.addEventListener('click', ()=> respondToAccessRequest('approved'));
+document.getElementById('ar-reject-btn')?.addEventListener('click', ()=> respondToAccessRequest('rejected'));
+async function respondToAccessRequest(status){
+  if(!CURRENT_UID) return;
+  try{
+    await fbDb.ref('accounts/' + CURRENT_UID + '/accessRequest').set({status, respondedAt: Date.now()});
+    document.getElementById('access-request-modal').classList.add('hidden');
+  }catch(e){
+    alert('صار خطأ، حاول مرة ثانية.');
+  }
+}
+
 let STATE = null;
 let openDays = new Set([0]); // day indices whose body stays expanded across re-renders
 let currentUploadTarget = null; // {type:'item'/'general', dayIndex, itemIdx}
@@ -1251,9 +1384,18 @@ function fmtNum(n){
 async function storageGet(){
   if(!CURRENT_UID) return null;
   try{
-    const snap = await fbDb.ref('accounts/' + CURRENT_UID + '/data').get();
+    const snap = await fbDb.ref('adminData/' + CURRENT_UID).get();
     if(snap.exists()){
       const raw = JSON.stringify(snap.val());
+      try{ localStorage.setItem('state-cache-' + CURRENT_UID, raw); }catch(e){}
+      return raw;
+    }
+    // migrate from the old pre-approval-workflow location, if present
+    const legacySnap = await fbDb.ref('accounts/' + CURRENT_UID + '/data').get();
+    if(legacySnap.exists()){
+      const val = legacySnap.val();
+      await fbDb.ref('adminData/' + CURRENT_UID).set(val);
+      const raw = JSON.stringify(val);
       try{ localStorage.setItem('state-cache-' + CURRENT_UID, raw); }catch(e){}
       return raw;
     }
@@ -1263,7 +1405,7 @@ async function storageGet(){
   }
 }
 
-const PAGE_LABELS = {home:'الرئيسية', daily:'المصاريف اليومية', students:'المشتركين', subs:'الاشتراكات', stats:'الإحصائيات'};
+const PAGE_LABELS = {home:'الرئيسية', daily:'المصاريف اليومية', students:'استرداد المبالغ', subs:'الاشتراكات', stats:'الإحصائيات'};
 function superEditNoticeText(){
   const activeBtn = document.querySelector('.tab-btn[data-page].active');
   const page = activeBtn ? (PAGE_LABELS[activeBtn.dataset.page] || activeBtn.dataset.page) : null;
@@ -1275,7 +1417,7 @@ async function storageSet(value){  if(!CURRENT_UID) return false;
   try{ localStorage.setItem('state-cache-' + CURRENT_UID, value); }catch(e){}
   try{
     SUPPRESS_LIVE_RENDER = true;
-    await fbDb.ref('accounts/' + CURRENT_UID + '/data').set(JSON.parse(value));
+    await fbDb.ref('adminData/' + CURRENT_UID).set(JSON.parse(value));
     if(IS_IMPERSONATING) await pushNotificationToAdmin(CURRENT_UID, superEditNoticeText());
     return true;
   }catch(e){
@@ -1330,7 +1472,7 @@ let SUPPRESS_LIVE_RENDER = false; // true briefly while we are the one writing, 
 function attachLiveDataListener(){
   detachLiveDataListener();
   if(!CURRENT_UID) return;
-  LIVE_DATA_REF = fbDb.ref('accounts/' + CURRENT_UID + '/data');
+  LIVE_DATA_REF = fbDb.ref('adminData/' + CURRENT_UID);
   LIVE_DATA_REF.on('value', (snap)=>{
     if(SUPPRESS_LIVE_RENDER) return;
     if(!snap.exists()) return;
@@ -1566,6 +1708,19 @@ function renderGlobalSummary(){
 }
 
 function renderHome(){
+  const budget = computeBudget();
+  const consumed = computeConsumed();
+  document.getElementById('home-budget').textContent = fmt(budget);
+  document.getElementById('home-consumed').textContent = fmt(consumed);
+  document.getElementById('home-remaining').textContent = fmt(budget - consumed);
+
+  const withDebt = STATE.students.filter(hasDebt);
+  const refundTotal = withDebt.reduce((sum,s)=> sum + (parseFloat(s.amount)||0), 0);
+  document.getElementById('home-refund-count').textContent = withDebt.length;
+  document.getElementById('home-refund-total').textContent = fmt(refundTotal);
+
+  const subsPaid = STATE.subscriptions.filter(s=> s.status === 'paid').length;
+  document.getElementById('home-subs-status').textContent = subsPaid + ' / ' + STATE.subscriptions.length;
 }
 
 function invoiceImgSrc(num){
@@ -1778,7 +1933,7 @@ async function forceSaveState(){
 
 document.getElementById('clear-all-btn').addEventListener('click', async ()=>{
   if(readOnlyMode()) return;
-  if(!confirm('⚠️ هذا بيمسح كل البيانات نهائياً (المصاريف، المشتركين، الاشتراكات، الصور، كل شي) — ما فيه رجعة إلا لو عندك نسخة احتياطية محفوظة. متأكد تبي تكمل؟')) return;
+  if(!confirm('⚠️ هذا بيمسح كل البيانات نهائياً (المصاريف، استرداد المبالغ، الاشتراكات، الصور، كل شي) — ما فيه رجعة إلا لو عندك نسخة احتياطية محفوظة. متأكد تبي تكمل؟')) return;
   if(!confirm('تأكيد أخير: بيصير الموقع فاضي بالكامل. متأكد ١٠٠٪؟')) return;
 
   const keepTitle = STATE.siteTitle;
@@ -1920,7 +2075,7 @@ function renderPrintReport(){
   html += `<h2>تفاصيل المصاريف والفواتير</h2>`;
   html += excelStyleExpenseTable();
 
-  html += `<h2 class="pr-page-break">قائمة المشتركين واسترداد المبالغ (اللي عليهم مبالغ فقط)</h2>`;
+  html += `<h2 class="pr-page-break">قائمة استرداد المبالغ (اللي عليهم مبالغ فقط)</h2>`;
   html += `<table><tr>
       <th class="pr-students-notes pr-right">الملاحظات / رقم الفاتورة</th>
       <th class="pr-students-amount">المبلغ</th>
