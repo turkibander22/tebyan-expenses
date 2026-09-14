@@ -129,11 +129,40 @@
 
   .more-btn{ background:rgba(var(--tint-rgb),.08); }
   .more-menu{
-    display:none;
-    max-width:900px; margin:0 auto 20px; padding:0 16px;
-    flex-wrap:wrap; gap:10px; justify-content:center;
+    max-width:380px; margin:0 auto 0; padding:0 14px;
+    max-height:0; opacity:0; transform:translateY(-10px);
+    overflow:hidden;
+    transition:max-height .32s cubic-bezier(.4,0,.2,1), opacity .22s ease, transform .28s cubic-bezier(.4,0,.2,1), margin .32s ease;
   }
-  .more-menu.open{ display:flex; }
+  .more-menu.open{
+    max-height:520px; opacity:1; transform:translateY(0); margin:0 auto 20px;
+  }
+  .more-menu-inner{
+    background:var(--navy); border:1px solid rgba(var(--tint-rgb),.12); border-radius:18px;
+    box-shadow:0 14px 34px rgba(0,0,0,.28);
+    padding:8px; display:flex; flex-direction:column; gap:2px;
+  }
+  .mm-item{
+    display:flex; align-items:center; gap:12px; width:100%;
+    background:transparent; border:none; border-radius:12px;
+    padding:11px 12px; font-family:inherit; font-size:.9rem; font-weight:600;
+    color:var(--white); text-align:right; cursor:pointer;
+    transition:background .15s ease;
+  }
+  .mm-item:hover{ background:rgba(var(--tint-rgb),.07); }
+  .mm-item:active{ background:rgba(var(--tint-rgb),.12); }
+  .mm-icon{
+    flex:0 0 auto; width:34px; height:34px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.05rem;
+  }
+  .mm-icon-blue{ background:rgba(157,184,255,.16); }
+  .mm-icon-teal{ background:rgba(43,184,159,.16); }
+  .mm-icon-neutral{ background:rgba(var(--tint-rgb),.1); }
+  .mm-icon-red{ background:rgba(217,83,79,.16); }
+  .mm-label{ flex:1; }
+  .mm-divider{ height:1px; background:rgba(var(--tint-rgb),.1); margin:6px 4px; }
+  .mm-item.mm-danger{ color:#e07a77; }
 
   main{
     max-width:1000px;
@@ -749,13 +778,16 @@
 </nav>
 
 <div class="more-menu" id="more-menu">
-  <button class="tab-btn pdf-btn" id="export-pdf-btn">📄 تصدير PDF</button>
-  <button class="tab-btn backup-btn" id="export-backup-btn" style="background:rgba(43,184,159,.18); border-color:var(--teal-light); color:var(--teal-light);">⬇️ نسخة احتياطية</button>
-  <button class="tab-btn backup-btn" id="import-backup-btn" style="background:rgba(43,184,159,.18); border-color:var(--teal-light); color:var(--teal-light);">⬆️ استيراد نسخة</button>
+<div class="more-menu-inner">
+  <button class="mm-item" id="export-pdf-btn"><span class="mm-icon mm-icon-blue">📄</span><span class="mm-label">تصدير PDF</span></button>
+  <button class="mm-item" id="export-backup-btn"><span class="mm-icon mm-icon-teal">⬇️</span><span class="mm-label">نسخة احتياطية</span></button>
+  <button class="mm-item" id="import-backup-btn"><span class="mm-icon mm-icon-teal">⬆️</span><span class="mm-label">استيراد نسخة</span></button>
   <input type="file" id="import-backup-input" accept="application/json" style="display:none;">
-  <button class="tab-btn logout-btn" id="clear-all-btn" style="background:rgba(217,83,79,.12); border-color:#d9534f; color:#e07a77;">🗑️ محو كل البيانات</button>
-  <button class="tab-btn backup-btn" id="change-pass-btn">🔑 تغيير الرمز</button>
-  <button class="tab-btn logout-btn" id="logout-btn" style="display:none;">🚪 تسجيل الخروج</button>
+  <button class="mm-item" id="change-pass-btn"><span class="mm-icon mm-icon-neutral">🔑</span><span class="mm-label">تغيير الرمز</span></button>
+  <div class="mm-divider"></div>
+  <button class="mm-item mm-danger" id="clear-all-btn"><span class="mm-icon mm-icon-red">🗑️</span><span class="mm-label">محو كل البيانات</span></button>
+  <button class="mm-item mm-danger" id="logout-btn" style="display:none;"><span class="mm-icon mm-icon-red">🚪</span><span class="mm-label">تسجيل الخروج</span></button>
+</div>
 </div>
 
 <main>
@@ -2367,8 +2399,18 @@ document.getElementById('import-excel-input').addEventListener('change', functio
 
 
 // ---------- More menu ----------
-document.getElementById('more-menu-btn').addEventListener('click', ()=>{
+document.getElementById('more-menu-btn').addEventListener('click', (e)=>{
+  e.stopPropagation();
   document.getElementById('more-menu').classList.toggle('open');
+});
+document.addEventListener('click', (e)=>{
+  const menu = document.getElementById('more-menu');
+  if(menu.classList.contains('open') && !menu.contains(e.target) && e.target.id !== 'more-menu-btn'){
+    menu.classList.remove('open');
+  }
+});
+document.querySelectorAll('#more-menu .mm-item').forEach(btn=>{
+  btn.addEventListener('click', ()=> document.getElementById('more-menu').classList.remove('open'));
 });
 
 // ---------- Header: logo + editable title/subtitle ----------
