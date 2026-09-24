@@ -399,6 +399,14 @@
   }
   .login-box .link-btn:hover{ background:transparent; color:var(--white); }
 
+  .acct-type-toggle{ display:flex; gap:8px; margin-bottom:14px; }
+  .acct-type-btn{
+    flex:1; font-family:inherit; font-size:.82rem; font-weight:700; padding:10px 8px;
+    border-radius:10px; border:1px solid rgba(var(--tint-rgb),.15); background:rgba(var(--tint-rgb),.05);
+    color:var(--muted); cursor:pointer; transition:all .15s ease;
+  }
+  .acct-type-btn.active{ background:var(--teal); border-color:var(--teal); color:#fff; }
+
   .hidden{ display:none !important; }
 
   #theme-toggle-btn{
@@ -685,14 +693,31 @@
   <div class="login-box hidden" id="gate-view-register">
     <h2>إنشاء حساب جديد</h2>
     <p>بعد الإرسال، يراجع المشرف طلبك قبل ما تقدر تدخل</p>
+    <div class="acct-type-toggle" id="acct-type-toggle">
+      <button type="button" class="acct-type-btn active" data-type="group">مجموعة</button>
+      <button type="button" class="acct-type-btn" data-type="pair">بين شخصين</button>
+    </div>
     <input type="text" id="reg-user" placeholder="اسم المستخدم (حروف إنجليزية وأرقام)" autocomplete="username">
     <input type="text" id="reg-progname" placeholder="اسم البرنامج (يظهر بأعلى صفحتك)">
+    <input type="text" id="reg-partner-name" class="hidden" placeholder="اسم الطرف الثاني">
     <input type="email" id="reg-email" placeholder="بريدك الإلكتروني (لاستعادة الرمز عند نسيانه)" autocomplete="email">
     <input type="password" id="reg-pass" placeholder="الرمز" autocomplete="new-password">
     <input type="password" id="reg-pass2" placeholder="تأكيد الرمز" autocomplete="new-password">
     <button id="register-submit">إرسال الطلب</button>
     <div class="login-error" id="register-error"></div>
     <button class="link-btn" id="show-login-btn" type="button">عندك حساب؟ سجّل دخول</button>
+  </div>
+
+  <div class="login-box hidden" id="gate-view-join">
+    <h2>🤝 انضمام كطرف ثاني</h2>
+    <p id="join-invite-desc">أنشئ حسابك الخاص للدخول على نفس البيانات المشتركة</p>
+    <input type="text" id="join-user" placeholder="اسم المستخدم (حروف إنجليزية وأرقام)" autocomplete="username">
+    <input type="email" id="join-email" placeholder="بريدك الإلكتروني" autocomplete="email">
+    <input type="password" id="join-pass" placeholder="الرمز" autocomplete="new-password">
+    <input type="password" id="join-pass2" placeholder="تأكيد الرمز" autocomplete="new-password">
+    <button id="join-submit">انضمام</button>
+    <div class="login-error" id="join-error"></div>
+    <button class="link-btn" id="join-back-btn" type="button">رجوع لتسجيل الدخول</button>
   </div>
 
   <div class="login-box hidden" id="gate-view-pending">
@@ -727,6 +752,16 @@
     <p>الإدارة تطلب الدخول لحسابك ومشاهدة بياناتك. هل توافق؟</p>
     <button id="ar-approve-btn" style="background:var(--teal);">✔️ موافقة</button>
     <button id="ar-reject-btn" style="background:var(--red); margin-top:10px;">✖️ رفض</button>
+  </div>
+</div>
+
+<div id="invite-modal" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:3000; display:flex; align-items:center; justify-content:center; padding:20px;">
+  <div class="login-box">
+    <h2>🤝 دعوة الطرف الثاني</h2>
+    <p>انسخ الرابط وأرسله للطرف الثاني (واتساب مثلًا) عشان يسجّل حسابه الخاص وينضم لنفس البيانات</p>
+    <input type="text" id="invite-link-box" readonly style="text-align:center; direction:ltr;">
+    <button id="invite-copy-btn">نسخ الرابط</button>
+    <button class="link-btn" id="invite-close-btn" type="button">إغلاق</button>
   </div>
 </div>
 
@@ -771,8 +806,8 @@
 <nav class="tabs">
   <button class="tab-btn active" data-page="home">الرئيسية</button>
   <button class="tab-btn" data-page="daily">المصاريف اليومية</button>
-  <button class="tab-btn" data-page="students">استرداد المبالغ</button>
-  <button class="tab-btn" data-page="subs">الاشتراكات</button>
+  <button class="tab-btn" data-page="students" id="tab-students">استرداد المبالغ</button>
+  <button class="tab-btn" data-page="subs" id="tab-subs">الاشتراكات</button>
   <button class="tab-btn" data-page="stats">الإحصائيات</button>
   <button class="tab-btn more-btn" id="more-menu-btn">⚙️ المزيد</button>
 </nav>
@@ -783,6 +818,7 @@
   <button class="mm-item" id="export-backup-btn"><span class="mm-icon mm-icon-teal">⬇️</span><span class="mm-label">نسخة احتياطية</span></button>
   <button class="mm-item" id="import-backup-btn"><span class="mm-icon mm-icon-teal">⬆️</span><span class="mm-label">استيراد نسخة</span></button>
   <input type="file" id="import-backup-input" accept="application/json" style="display:none;">
+  <button class="mm-item hidden" id="invite-partner-btn"><span class="mm-icon mm-icon-teal">🤝</span><span class="mm-label">دعوة الطرف الثاني</span></button>
   <button class="mm-item" id="change-pass-btn"><span class="mm-icon mm-icon-neutral">🔑</span><span class="mm-label">تغيير الرمز</span></button>
   <div class="mm-divider"></div>
   <button class="mm-item mm-danger" id="clear-all-btn"><span class="mm-icon mm-icon-red">🗑️</span><span class="mm-label">محو كل البيانات</span></button>
@@ -801,10 +837,13 @@
   <!-- HOME -->
   <section class="page active" id="page-home">
     <div class="section-title">أهم المعلومات</div>
-    <div class="cards-row">
+    <div class="cards-row" id="group-home-cards">
       <div class="stat-card budget" data-goto="students" style="cursor:pointer;"><div class="label">عدد استرداد المبالغ</div><div class="value" id="home-refund-count">-</div></div>
       <div class="stat-card consumed" data-goto="students" style="cursor:pointer;"><div class="label">إجمالي المبالغ المطلوب استردادها</div><div class="value" id="home-refund-total">-</div></div>
       <div class="stat-card remaining" data-goto="subs" style="cursor:pointer;"><div class="label">حالة الاشتراكات (مدفوع/الكل)</div><div class="value" id="home-subs-status">-</div></div>
+    </div>
+    <div class="cards-row hidden" id="pair-home-cards">
+      <div class="stat-card remaining"><div class="label" id="pair-balance-label">الرصيد</div><div class="value" id="pair-balance-value">-</div></div>
     </div>
   </section>
 
@@ -1010,12 +1049,15 @@ const USERNAME_RE = /^[A-Za-z0-9_]{3,20}$/;
 let CURRENT_UID = null;       // uid whose data is currently bound to STATE
 let CURRENT_ROLE = null;      // 'admin' | 'super'
 let IS_IMPERSONATING = false; // true while the super admin is viewing/editing another admin's data
+let MY_UID = null;            // this logged-in person's own uid (differs from CURRENT_UID for a partner member)
+let MY_ROLE_ON_ACCOUNT = null; // 'owner' | 'partner' — who is actually logged in, for pair accounts
+let PARTNER_UID = null;        // the other party's uid, for pair accounts (whichever role I'm not)
 
 function readOnlyMode(){ return false; }
 function usernameToEmail(u){ return u.trim().toLowerCase() + '@' + AUTH_EMAIL_DOMAIN; }
 
 function showGateView(view){
-  ['login','register','pending','rejected','forgot','linkemail'].forEach(v=>{
+  ['login','register','pending','rejected','forgot','linkemail','join'].forEach(v=>{
     document.getElementById('gate-view-'+v).classList.toggle('hidden', v!==view);
   });
   document.getElementById('login-gate').classList.remove('hidden');
@@ -1077,16 +1119,28 @@ document.getElementById('forgot-submit')?.addEventListener('click', async ()=>{
 
 let IS_REGISTERING = false;
 document.getElementById('register-submit')?.addEventListener('click', doRegister);
+let SELECTED_ACCT_TYPE = 'group';
+document.querySelectorAll('#acct-type-toggle .acct-type-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    SELECTED_ACCT_TYPE = btn.dataset.type;
+    document.querySelectorAll('#acct-type-toggle .acct-type-btn').forEach(b=> b.classList.toggle('active', b===btn));
+    document.getElementById('reg-partner-name').classList.toggle('hidden', SELECTED_ACCT_TYPE !== 'pair');
+    document.getElementById('reg-progname').placeholder = SELECTED_ACCT_TYPE === 'pair' ? 'اسم البرنامج (اختياري)' : 'اسم البرنامج (يظهر بأعلى صفحتك)';
+  });
+});
+
 async function doRegister(){
   const u = document.getElementById('reg-user').value.trim();
   const progName = document.getElementById('reg-progname').value.trim();
+  const partnerName = document.getElementById('reg-partner-name').value.trim();
   const emailInput = document.getElementById('reg-email').value.trim();
   const p = document.getElementById('reg-pass').value;
   const p2 = document.getElementById('reg-pass2').value;
   const errEl = document.getElementById('register-error');
   errEl.style.display = 'none';
   if(!USERNAME_RE.test(u)){ errEl.textContent = 'اسم المستخدم لازم يكون حروف إنجليزية أو أرقام فقط (٣ إلى ٢٠ رمز)'; errEl.style.display='block'; return; }
-  if(!progName){ errEl.textContent = 'أدخل اسم البرنامج'; errEl.style.display='block'; return; }
+  if(SELECTED_ACCT_TYPE === 'pair' && !partnerName){ errEl.textContent = 'أدخل اسم الطرف الثاني'; errEl.style.display='block'; return; }
+  if(SELECTED_ACCT_TYPE === 'group' && !progName){ errEl.textContent = 'أدخل اسم البرنامج'; errEl.style.display='block'; return; }
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput)){ errEl.textContent = 'أدخل بريد إلكتروني صحيح — يحتاجه النظام لاستعادة الرمز عند نسيانه'; errEl.style.display='block'; return; }
   if(p.length < 6){ errEl.textContent = 'الرمز لازم يكون ٦ أحرف على الأقل'; errEl.style.display='block'; return; }
   if(p !== p2){ errEl.textContent = 'الرمزين غير متطابقين'; errEl.style.display='block'; return; }
@@ -1094,9 +1148,18 @@ async function doRegister(){
   IS_REGISTERING = true; // stops the login listener below from reacting mid-registration
   try{
     const cred = await fbAuth.createUserWithEmailAndPassword(emailInput, p);
-    await fbDb.ref('accounts/' + cred.user.uid).set({
-      username: u, email: emailInput, programName: progName, status: 'pending', createdAt: Date.now()
-    });
+    const accountData = {
+      username: u, email: emailInput, status: 'pending', createdAt: Date.now(),
+      accountType: SELECTED_ACCT_TYPE
+    };
+    if(SELECTED_ACCT_TYPE === 'pair'){
+      accountData.programName = progName || (u + ' و' + partnerName);
+      accountData.ownerName = u;
+      accountData.partnerName = partnerName;
+    } else {
+      accountData.programName = progName;
+    }
+    await fbDb.ref('accounts/' + cred.user.uid).set(accountData);
     await fbDb.ref('usernameEmailMap/' + uKey).set(emailInput);
     await fbAuth.signOut();
     showGateView('pending');
@@ -1191,6 +1254,61 @@ document.getElementById('cp-submit')?.addEventListener('click', async ()=>{
   }
 });
 
+// ---------- Join as partner (via invite link) ----------
+let INVITE_OWNER_UID = null;
+let INVITE_CODE = null;
+(function checkInviteLink(){
+  const params = new URLSearchParams(location.search);
+  const code = params.get('invite');
+  if(!code) return;
+  INVITE_CODE = code;
+  fbDb.ref('inviteCodes/' + code).get().then(snap=>{
+    if(snap.exists()){
+      INVITE_OWNER_UID = snap.val();
+      showGateView('join');
+    } else {
+      document.getElementById('join-invite-desc').textContent = 'رابط الدعوة غير صالح أو انتهى.';
+      showGateView('join');
+      document.getElementById('join-submit').disabled = true;
+    }
+  }).catch(()=>{});
+})();
+document.getElementById('join-back-btn')?.addEventListener('click', ()=> showGateView('login'));
+document.getElementById('join-submit')?.addEventListener('click', doJoinAsPartner);
+async function doJoinAsPartner(){
+  const u = document.getElementById('join-user').value.trim();
+  const emailInput = document.getElementById('join-email').value.trim();
+  const p = document.getElementById('join-pass').value;
+  const p2 = document.getElementById('join-pass2').value;
+  const errEl = document.getElementById('join-error');
+  errEl.style.display = 'none';
+  if(!INVITE_OWNER_UID){ errEl.textContent = 'رابط الدعوة غير صالح.'; errEl.style.display='block'; return; }
+  if(!USERNAME_RE.test(u)){ errEl.textContent = 'اسم المستخدم لازم يكون حروف إنجليزية أو أرقام فقط (٣ إلى ٢٠ رمز)'; errEl.style.display='block'; return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput)){ errEl.textContent = 'أدخل بريد إلكتروني صحيح'; errEl.style.display='block'; return; }
+  if(p.length < 6){ errEl.textContent = 'الرمز لازم يكون ٦ أحرف على الأقل'; errEl.style.display='block'; return; }
+  if(p !== p2){ errEl.textContent = 'الرمزين غير متطابقين'; errEl.style.display='block'; return; }
+  IS_REGISTERING = true;
+  try{
+    const cred = await fbAuth.createUserWithEmailAndPassword(emailInput, p);
+    await fbDb.ref('accounts/' + cred.user.uid).set({
+      username: u, email: emailInput, status: 'approved', role: 'partner',
+      linkedAccountUid: INVITE_OWNER_UID, createdAt: Date.now()
+    });
+    await fbDb.ref('usernameEmailMap/' + u).set(emailInput);
+    await fbDb.ref('accounts/' + INVITE_OWNER_UID + '/partnerUid').set(cred.user.uid);
+    await fbDb.ref('accounts/' + INVITE_OWNER_UID + '/inviteCode').remove();
+    await fbDb.ref('inviteCodes/' + INVITE_CODE).remove();
+    history.replaceState(null, '', location.pathname);
+  }catch(e){
+    console.error('join failed', e);
+    if(e.code === 'auth/email-already-in-use') errEl.textContent = 'هذا البريد مستخدم من قبل لحساب آخر';
+    else errEl.textContent = 'صار خطأ، حاول مرة ثانية';
+    errEl.style.display = 'block';
+  } finally {
+    IS_REGISTERING = false;
+  }
+}
+
 fbAuth.onAuthStateChanged(async (user)=>{
   if(IS_REGISTERING) return; // doRegister() is handling its own UI right now
   detachLiveDataListener();
@@ -1220,7 +1338,17 @@ fbAuth.onAuthStateChanged(async (user)=>{
   if(!profile || profile.status === 'pending'){ showGateView('pending'); return; }
   if(profile.status === 'rejected'){ showGateView('rejected'); return; }
   // approved
-  CURRENT_UID = user.uid; CURRENT_ROLE = 'admin'; IS_IMPERSONATING = false;
+  MY_UID = user.uid;
+  if(profile.role === 'partner' && profile.linkedAccountUid){
+    CURRENT_UID = profile.linkedAccountUid; MY_ROLE_ON_ACCOUNT = 'partner'; PARTNER_UID = MY_UID;
+  } else {
+    CURRENT_UID = user.uid; MY_ROLE_ON_ACCOUNT = 'owner';
+    try{
+      const pSnap = await fbDb.ref('accounts/' + CURRENT_UID + '/partnerUid').get();
+      PARTNER_UID = pSnap.exists() ? pSnap.val() : null;
+    }catch(e){ PARTNER_UID = null; }
+  }
+  CURRENT_ROLE = 'admin'; IS_IMPERSONATING = false;
   hideGate();
   document.getElementById('super-dashboard').classList.add('hidden');
   document.getElementById('app-root').classList.remove('hidden');
@@ -1232,6 +1360,35 @@ fbAuth.onAuthStateChanged(async (user)=>{
   await showAdminNotifications();
   attachLiveDataListener();
   attachAccessRequestListener();
+  await updateInvitePartnerVisibility();
+});
+
+async function updateInvitePartnerVisibility(){
+  const btn = document.getElementById('invite-partner-btn');
+  if(MY_ROLE_ON_ACCOUNT !== 'owner' || STATE.accountType !== 'pair'){ btn.classList.add('hidden'); return; }
+  try{
+    const snap = await fbDb.ref('accounts/' + MY_UID + '/partnerUid').get();
+    btn.classList.toggle('hidden', snap.exists() && !!snap.val());
+  }catch(e){ btn.classList.add('hidden'); }
+}
+document.getElementById('invite-partner-btn')?.addEventListener('click', async ()=>{
+  try{
+    const code = Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+    await fbDb.ref('accounts/' + MY_UID + '/inviteCode').set(code);
+    await fbDb.ref('inviteCodes/' + code).set(MY_UID);
+    const link = location.origin + location.pathname + '?invite=' + code;
+    document.getElementById('invite-link-box').value = link;
+    document.getElementById('invite-modal').classList.remove('hidden');
+  }catch(e){ alert('تعذر إنشاء رابط الدعوة.'); }
+});
+document.getElementById('invite-copy-btn')?.addEventListener('click', ()=>{
+  const box = document.getElementById('invite-link-box');
+  box.select();
+  try{ document.execCommand('copy'); }catch(e){}
+  navigator.clipboard?.writeText(box.value).catch(()=>{});
+});
+document.getElementById('invite-close-btn')?.addEventListener('click', ()=>{
+  document.getElementById('invite-modal').classList.add('hidden');
 });
 
 // ---------- Super Admin dashboard ----------
@@ -1501,8 +1658,16 @@ async function loadState(){
   // First time this account ever loads: use the program name they chose at registration, if any.
   if(CURRENT_UID){
     try{
-      const snap = await fbDb.ref('accounts/' + CURRENT_UID + '/programName').get();
-      if(snap.exists() && snap.val()) STATE.siteTitle = snap.val();
+      const snap = await fbDb.ref('accounts/' + CURRENT_UID).get();
+      if(snap.exists()){
+        const acc = snap.val();
+        if(acc.programName) STATE.siteTitle = acc.programName;
+        if(acc.accountType === 'pair'){
+          STATE.accountType = 'pair';
+          STATE.ownerName = acc.ownerName || acc.username;
+          STATE.partnerName = acc.partnerName || '';
+        }
+      }
     }catch(e){}
   }
   await saveState();
@@ -1640,11 +1805,45 @@ function computeCollectedSubs(){
 }
 
 function render(){
-  const steps = [renderHeader, renderGlobalSummary, renderHome, renderDaily, renderStudents, renderSubscriptions, renderStats];
+  const steps = [renderHeader, applyAccountTypeUI, renderGlobalSummary, renderHome, renderDaily, renderStudents, renderSubscriptions, renderStats];
   steps.forEach(fn=>{
     try{ fn(); }
     catch(e){ console.error('render step failed:', fn.name, e); }
   });
+}
+
+function applyAccountTypeUI(){
+  const isPair = STATE.accountType === 'pair';
+  document.getElementById('tab-students').classList.toggle('hidden', isPair);
+  document.getElementById('tab-subs').classList.toggle('hidden', isPair);
+  document.getElementById('group-home-cards').classList.toggle('hidden', isPair);
+  document.getElementById('pair-home-cards').classList.toggle('hidden', !isPair);
+  if(!isPair) return;
+  // If the user happens to be sitting on a now-hidden page, send them home.
+  if(document.getElementById('page-students')?.classList.contains('active') || document.getElementById('page-subs')?.classList.contains('active')){
+    switchPage('home');
+  }
+  const ownerName = STATE.ownerName || 'الطرف الأول';
+  const partnerName = STATE.partnerName || 'الطرف الثاني';
+  let ownerTotal = 0, partnerTotal = 0;
+  allItemsFlat().forEach(it=>{
+    const price = parseFloat(it.price) || 0;
+    if(it.createdBy && PARTNER_UID && it.createdBy === PARTNER_UID) partnerTotal += price;
+    else ownerTotal += price; // default to owner if unmarked (legacy items)
+  });
+  const net = ownerTotal - partnerTotal; // positive: partner owes owner; negative: owner owes partner
+  const label = document.getElementById('pair-balance-label');
+  const value = document.getElementById('pair-balance-value');
+  if(Math.abs(net) < 0.01){
+    label.textContent = 'الرصيد';
+    value.textContent = 'لا يوجد مبلغ مستحق';
+  } else if(net > 0){
+    label.textContent = partnerName + ' عليه لـ' + ownerName;
+    value.textContent = fmt(net);
+  } else {
+    label.textContent = ownerName + ' عليه لـ' + partnerName;
+    value.textContent = fmt(-net);
+  }
 }
 
 function ensureSiteMeta(){
@@ -1789,10 +1988,11 @@ function tableRowHtml(it, ctx){
   } else {
     imgCell = `<button class="no-img-btn" data-upload='${JSON.stringify(ctx)}-${it.__idx}'>+ صورة</button>`;
   }
-  const actionsCell = readOnlyMode() ? '' : `<td><div class="row-actions">
+  const canEditThis = !(STATE.accountType === 'pair' && it.createdBy && MY_UID && it.createdBy !== MY_UID);
+  const actionsCell = readOnlyMode() ? '' : (!canEditThis ? '<td></td>' : `<td><div class="row-actions">
       <button class="icon-btn" data-edit="${ctx.kind}|${ctx.dayIndex ?? ''}|${it.__idx}">✏️</button>
       <button class="icon-btn" data-del="${ctx.kind}|${ctx.dayIndex ?? ''}|${it.__idx}">🗑️</button>
-    </div></td>`;
+    </div></td>`);
   return `<tr>
     <td>${it.num ?? ''}</td>
     <td class="title-cell">${escapeHtml(it.title||'')}</td>
@@ -2260,6 +2460,7 @@ document.addEventListener('click', (e)=>{
   if(editBtn){
     const [kind, dayIndex, idx] = editBtn.dataset.edit.split('|');
     const it = kind==='general' ? STATE.general[idx] : STATE.days[dayIndex].items[idx];
+    if(STATE.accountType === 'pair' && it?.createdBy && MY_UID && it.createdBy !== MY_UID){ return; }
     openItemForm({kind, dayIndex: dayIndex===''?undefined:parseInt(dayIndex)}, it, parseInt(idx));
   }
 
@@ -2267,6 +2468,7 @@ document.addEventListener('click', (e)=>{
   if(delBtn){
     const [kind, dayIndex, idx] = delBtn.dataset.del.split('|');
     const it = kind==='general' ? STATE.general[idx] : STATE.days[dayIndex].items[idx];
+    if(STATE.accountType === 'pair' && it?.createdBy && MY_UID && it.createdBy !== MY_UID){ return; }
     const linkedNames = it ? findStudentsLinkedToInvoice(it.num).map(s=>s.name) : [];
     const warnMsg = linkedNames.length
       ? `هذا البند مرتبط بـ: ${linkedNames.join('، ')}. حذفه بيشيل الربط والمبلغ من عندهم تلقائياً. متأكد؟`
@@ -2657,6 +2859,7 @@ document.getElementById('item-form-save').addEventListener('click', async ()=>{
     const allNums = allItemsFlat().map(it=>it.num||0);
     itemNum = allNums.length ? Math.max(...allNums)+1 : 1;
     const newItem = {num: itemNum, title, price, notes};
+    if(STATE.accountType === 'pair' && MY_UID) newItem.createdBy = MY_UID;
     if(itemFormCtx.kind==='general') STATE.general.push(newItem);
     else STATE.days[itemFormCtx.dayIndex].items.push(newItem);
   }
