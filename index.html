@@ -1829,8 +1829,10 @@ function applyAccountTypeUI(){
   let ownerTotal = 0, partnerTotal = 0;
   allItemsFlat().forEach(it=>{
     const price = parseFloat(it.price) || 0;
-    if(it.createdBy && PARTNER_UID && it.createdBy === PARTNER_UID) partnerTotal += price;
-    else ownerTotal += price; // default to owner if unmarked (legacy items)
+    // Classify by the account's own uid (CURRENT_UID never goes stale), not the cached PARTNER_UID,
+    // which is fetched once at login and can be wrong if the partner joined after this session started.
+    if(it.createdBy && it.createdBy !== CURRENT_UID) partnerTotal += price;
+    else ownerTotal += price; // owner's own items, or legacy items with no createdBy
   });
   document.getElementById('pair-total-value').textContent = fmt(ownerTotal + partnerTotal);
 
