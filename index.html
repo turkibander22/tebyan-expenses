@@ -527,10 +527,14 @@
     .day-body{ padding:10px 12px 14px; }
 
     .day-block, #page-students, #page-subs, #page-stats{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
-    table.exp-table, table.students-table{ font-size:.76rem; min-width:520px; }
+    table.exp-table, table.students-table{ font-size:.7rem; min-width:0; width:max-content; }
     table.exp-table th, table.exp-table td,
-    table.students-table th, table.students-table td{ padding:6px 5px; }
-    .thumb{ width:32px; height:32px; }
+    table.students-table th, table.students-table td{ padding:5px 4px; }
+    .thumb{ width:26px; height:26px; }
+    .row-actions{ gap:2px; }
+    .icon-btn{ padding:3px 4px; font-size:.85rem; }
+    .notes-cell{ max-width:70px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .payer-cell{ max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
     .add-row-btn, .tab-btn, button{ min-height:40px; }
     .form-modal-box, .login-box, .modal-box{ padding:16px; max-width:94vw; }
@@ -973,7 +977,7 @@
         <div><button type="button" class="btn-cancel" id="item-image-remove" style="margin-top:6px; padding:5px 14px; font-size:.78rem;">إزالة الصورة</button></div>
       </div>
     </div>
-    <div class="link-student-box">
+    <div class="link-student-box" id="link-student-box">
       <label><input type="checkbox" id="item-link-student-chk"> هذي الفاتورة تخص أحد المشتركين؟</label>
       <select id="item-link-student-select" style="display:none;"></select>
     </div>
@@ -2001,6 +2005,17 @@ function invoiceImgSrc(num){
   return STATE.images[String(num)] || null;
 }
 
+function tableHeaderRow(){
+  const payerTh = STATE.accountType === 'pair' ? '<th>الدافع</th>' : '';
+  return readOnlyMode()
+    ? `<tr><th>رقم</th><th>البند</th><th>السعر</th>${payerTh}<th>ملاحظات</th><th>الفاتورة</th></tr>`
+    : `<tr><th>رقم</th><th>البند</th><th>السعر</th>${payerTh}<th>ملاحظات</th><th>الفاتورة</th><th></th></tr>`;
+}
+function payerName(it){
+  if(STATE.accountType !== 'pair') return '';
+  if(!it.createdBy) return STATE.ownerName || '-'; // legacy items with no stamp: assume owner
+  return it.createdBy === CURRENT_UID ? (STATE.ownerName || '-') : (STATE.partnerName || '-');
+}
 function tableRowHtml(it, ctx){
   // ctx: {kind:'general'} or {kind:'day', dayIndex}
   const img = invoiceImgSrc(it.num);
@@ -2017,10 +2032,12 @@ function tableRowHtml(it, ctx){
       <button class="icon-btn" data-edit="${ctx.kind}|${ctx.dayIndex ?? ''}|${it.__idx}">✏️</button>
       <button class="icon-btn" data-del="${ctx.kind}|${ctx.dayIndex ?? ''}|${it.__idx}">🗑️</button>
     </div></td>`);
+  const payerCell = STATE.accountType === 'pair' ? `<td class="payer-cell">${escapeHtml(payerName(it))}</td>` : '';
   return `<tr>
     <td>${it.num ?? ''}</td>
     <td class="title-cell">${escapeHtml(it.title||'')}</td>
     <td>${fmt(it.price)}</td>
+    ${payerCell}
     <td class="notes-cell">${escapeHtml(it.notes||'')}</td>
     <td>${imgCell}</td>
     ${actionsCell}
@@ -2033,13 +2050,13 @@ function escapeHtml(s){
 
 function renderGeneralTable(){
   const tbl = document.getElementById('general-table');
-  let rows = (readOnlyMode() ? `<tr><th>رقم</th><th>البند</th><th>السعر</th><th>ملاحظات</th><th>الفاتورة</th></tr>` : `<tr><th>رقم</th><th>البند</th><th>السعر</th><th>ملاحظات</th><th>الفاتورة</th><th></th></tr>`);
+  let rows = tableHeaderRow();
   STATE.general.forEach((it,idx)=>{
     it.__idx = idx;
     rows += tableRowHtml(it, {kind:'general'});
   });
   if(STATE.general.length===0){
-    rows += `<tr><td colspan="6" class="empty-note">لا توجد بنود عامة بعد</td></tr>`;
+    rows += `<tr><td colspan="${STATE.accountType==='pair'?7:6}" class="empty-note">لا توجد بنود عامة بعد</td></tr>`;
   }
   tbl.innerHTML = rows;
 }
@@ -2056,10 +2073,10 @@ function renderDaily(){
     const dayLabel = DAY_NAMES[i] || `${i+1}`;
     const total = dayTotal(d);
     const isOpen = openDays.has(i);
-    let rows = (readOnlyMode() ? `<tr><th>رقم</th><th>البند</th><th>السعر</th><th>ملاحظات</th><th>الفاتورة</th></tr>` : `<tr><th>رقم</th><th>البند</th><th>السعر</th><th>ملاحظات</th><th>الفاتورة</th><th></th></tr>`);
+    let rows = tableHeaderRow();
     d.items.forEach((it, idx)=>{ it.__idx = idx; rows += tableRowHtml(it, {kind:'day', dayIndex:i}); });
     if(d.items.length===0){
-      rows += `<tr><td colspan="6" class="empty-note">لا توجد مصاريف مسجلة لهذا اليوم بعد</td></tr>`;
+      rows += `<tr><td colspan="${STATE.accountType==='pair'?7:6}" class="empty-note">لا توجد مصاريف مسجلة لهذا اليوم بعد</td></tr>`;
     }
     const dateEditBtn = readOnlyMode() ? '' : `<button class="icon-btn" data-edit-date="${i}" title="إضافة/تعديل تاريخ" style="padding:2px 5px; font-size:.75rem;">✏️</button>`;
     // لو ما فيه تاريخ محدد، نعرضه كـ"لقاء" برقمه بدون أي تخمين لتاريخ.
@@ -2828,6 +2845,7 @@ function openItemForm(ctx, existing=null){
   itemFormCtx = ctx;
   itemFormExisting = existing;
   if(ctx.kind==='day') openDays.add(ctx.dayIndex);
+  document.getElementById('link-student-box').classList.toggle('hidden', STATE.accountType === 'pair');
   document.getElementById('item-form-title').textContent = existing ? 'تعديل البند' : 'إضافة بند';
   populateCategorySelect(existing ? existing.title : null);
   document.getElementById('item-cat-other').value = existing && !STATE.categories.includes(existing.title) ? existing.title : '';
