@@ -843,6 +843,7 @@
       <div class="stat-card remaining" data-goto="subs" style="cursor:pointer;"><div class="label">حالة الاشتراكات (مدفوع/الكل)</div><div class="value" id="home-subs-status">-</div></div>
     </div>
     <div class="cards-row hidden" id="pair-home-cards">
+      <div class="stat-card consumed"><div class="label">إجمالي الاستهلاك</div><div class="value" id="pair-total-value">-</div></div>
       <div class="stat-card remaining"><div class="label" id="pair-balance-label">الرصيد</div><div class="value" id="pair-balance-value">-</div></div>
     </div>
   </section>
@@ -1831,17 +1832,23 @@ function applyAccountTypeUI(){
     if(it.createdBy && PARTNER_UID && it.createdBy === PARTNER_UID) partnerTotal += price;
     else ownerTotal += price; // default to owner if unmarked (legacy items)
   });
-  const net = ownerTotal - partnerTotal; // positive: partner owes owner; negative: owner owes partner
+  document.getElementById('pair-total-value').textContent = fmt(ownerTotal + partnerTotal);
+
+  const iAmPartner = MY_ROLE_ON_ACCOUNT === 'partner';
+  const myTotal = iAmPartner ? partnerTotal : ownerTotal;
+  const theirTotal = iAmPartner ? ownerTotal : partnerTotal;
+  const theirName = iAmPartner ? ownerName : partnerName;
+  const net = myTotal - theirTotal; // positive: they owe me; negative: I owe them
   const label = document.getElementById('pair-balance-label');
   const value = document.getElementById('pair-balance-value');
   if(Math.abs(net) < 0.01){
-    label.textContent = 'الرصيد';
+    label.textContent = 'الرصيد بينكم';
     value.textContent = 'لا يوجد مبلغ مستحق';
   } else if(net > 0){
-    label.textContent = partnerName + ' عليه لـ' + ownerName;
+    label.textContent = theirName + ' المفروض يعطيك';
     value.textContent = fmt(net);
   } else {
-    label.textContent = ownerName + ' عليه لـ' + partnerName;
+    label.textContent = 'عليك تدفع لـ' + theirName;
     value.textContent = fmt(-net);
   }
 }
