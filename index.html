@@ -819,6 +819,7 @@
   <button class="mm-item" id="import-backup-btn"><span class="mm-icon mm-icon-teal">⬆️</span><span class="mm-label">استيراد نسخة</span></button>
   <input type="file" id="import-backup-input" accept="application/json" style="display:none;">
   <button class="mm-item hidden" id="invite-partner-btn"><span class="mm-icon mm-icon-teal">🤝</span><span class="mm-label">دعوة الطرف الثاني</span></button>
+  <button class="mm-item hidden" id="change-name-btn"><span class="mm-icon mm-icon-neutral">✏️</span><span class="mm-label">تغيير الاسم</span></button>
   <button class="mm-item" id="change-pass-btn"><span class="mm-icon mm-icon-neutral">🔑</span><span class="mm-label">تغيير الرمز</span></button>
   <div class="mm-divider"></div>
   <button class="mm-item mm-danger" id="clear-all-btn"><span class="mm-icon mm-icon-red">🗑️</span><span class="mm-label">محو كل البيانات</span></button>
@@ -828,7 +829,7 @@
 
 <main>
 
-  <div class="cards-row global-summary">
+  <div class="cards-row global-summary" id="global-summary-row">
     <div class="stat-card budget"><div class="label">الميزانية الأصلية</div><div class="value" id="g-budget">-</div></div>
     <div class="stat-card consumed"><div class="label">إجمالي الاستهلاك</div><div class="value" id="g-consumed">-</div></div>
     <div class="stat-card remaining"><div class="label">المتبقي</div><div class="value" id="g-remaining">-</div></div>
@@ -1366,12 +1367,24 @@ fbAuth.onAuthStateChanged(async (user)=>{
 
 async function updateInvitePartnerVisibility(){
   const btn = document.getElementById('invite-partner-btn');
+  document.getElementById('change-name-btn').classList.toggle('hidden', STATE.accountType !== 'pair');
   if(MY_ROLE_ON_ACCOUNT !== 'owner' || STATE.accountType !== 'pair'){ btn.classList.add('hidden'); return; }
   try{
     const snap = await fbDb.ref('accounts/' + MY_UID + '/partnerUid').get();
     btn.classList.toggle('hidden', snap.exists() && !!snap.val());
   }catch(e){ btn.classList.add('hidden'); }
 }
+document.getElementById('change-name-btn')?.addEventListener('click', async ()=>{
+  const field = MY_ROLE_ON_ACCOUNT === 'partner' ? 'partnerName' : 'ownerName';
+  const current = STATE[field] || '';
+  const next = prompt('اكتب اسمك الجديد:', current);
+  if(next === null) return;
+  const trimmed = next.trim();
+  if(!trimmed) return;
+  STATE[field] = trimmed;
+  render();
+  saveState();
+});
 document.getElementById('invite-partner-btn')?.addEventListener('click', async ()=>{
   try{
     const code = Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
@@ -1965,6 +1978,8 @@ document.getElementById('sub-form-save').addEventListener('click', async ()=>{
 });
 
 function renderGlobalSummary(){
+  document.getElementById('global-summary-row').classList.toggle('hidden', STATE.accountType === 'pair');
+  if(STATE.accountType === 'pair') return;
   const consumed = computeConsumed();
   const budget = computeBudget();
   document.getElementById('g-budget').textContent = fmt(budget);
@@ -2326,16 +2341,20 @@ function renderPrintReport(){
     <img class="pr-brand-logo" src="${ALMASARIF_LOGO}" alt="شعار برنامج المصاريف">
     <h1>${escapeHtml(STATE.siteTitle)}</h1>
     <div class="pr-sub">${escapeHtml(STATE.siteSubtitle)} — تاريخ الإصدار: ${todayStr}</div>
-    <div class="pr-summary">
+  `;
+  const isPairPdf = STATE.accountType === 'pair';
+  if(!isPairPdf){
+    html += `<div class="pr-summary">
       <span class="pr-sum-budget">الأصل: ${fmt(budget)}</span>
       <span class="pr-sum-consumed">الاستهلاك: ${fmt(consumed)}</span>
       <span class="pr-sum-remaining">المتبقي: ${fmt(budget-consumed)}</span>
-    </div>
-  `;
+    </div>`;
+  }
 
   html += `<h2>تفاصيل المصاريف والفواتير</h2>`;
   html += excelStyleExpenseTable();
 
+  if(!isPairPdf){
   html += `<h2 class="pr-page-break">قائمة استرداد المبالغ (اللي عليهم مبالغ فقط)</h2>`;
   html += `<table><tr>
       <th class="pr-students-notes pr-right">الملاحظات / رقم الفاتورة</th>
@@ -2395,6 +2414,7 @@ function renderPrintReport(){
     html += `<tr><td>${pct}%</td><td>${fmt(val)}</td><td class="pr-right">${escapeHtml(name)}</td></tr>`;
   });
   html += `</table>`;
+  }
 
   // ---- توزيع الإجمالي: مجموعات مخصصة (يحددها المستخدم لكل بند) ----
   ensureCategoryGroups();
