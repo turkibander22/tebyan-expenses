@@ -1355,6 +1355,7 @@ fbAuth.onAuthStateChanged(async (user)=>{
     }catch(e){ PARTNER_UID = null; }
   }
   CURRENT_ROLE = 'admin'; IS_IMPERSONATING = false;
+  fbDb.ref('accounts/' + MY_UID + '/lastLogin').set(Date.now()).catch(()=>{});
   hideGate();
   document.getElementById('super-dashboard').classList.add('hidden');
   document.getElementById('app-root').classList.remove('hidden');
@@ -1430,6 +1431,18 @@ function attachAccountsListListener(){
 function detachAccountsListListener(){
   if(ACCOUNTS_LIST_REF){ ACCOUNTS_LIST_REF.off(); ACCOUNTS_LIST_REF = null; }
 }
+function formatLastSeen(ts){
+  if(!ts) return 'ما دخل بعد';
+  const diffMs = Date.now() - ts;
+  const mins = Math.floor(diffMs/60000);
+  if(mins < 1) return 'الآن';
+  if(mins < 60) return `قبل ${mins} دقيقة`;
+  const hours = Math.floor(mins/60);
+  if(hours < 24) return `قبل ${hours} ساعة`;
+  const days = Math.floor(hours/24);
+  if(days < 30) return `قبل ${days} يوم`;
+  return new Date(ts).toLocaleDateString('ar');
+}
 function renderAccountsListFromData(accounts){
   const listEl = document.getElementById('dash-accounts-list');
   const entries = Object.entries(accounts);
@@ -1458,7 +1471,7 @@ function renderAccountsListFromData(accounts){
     return `<div class="account-card">
       <div class="acc-info">
         <div class="name">${escapeHtml(acc.username || '(بدون اسم)')}</div>
-        <div class="meta">${escapeHtml(acc.email || '')} · ${date}</div>
+        <div class="meta">${escapeHtml(acc.email || '')} · ${date} · آخر دخول: ${formatLastSeen(acc.lastLogin)}</div>
       </div>
       <span class="status-badge ${acc.status}">${statusLabel[acc.status] || acc.status}</span>
       <div class="acc-actions">${actions}</div>
