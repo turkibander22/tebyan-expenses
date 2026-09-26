@@ -443,7 +443,12 @@
   }
   .account-card .acc-info{ text-align:right; }
   .account-card .acc-info .name{ font-weight:700; font-size:1.02rem; }
-  .account-card .acc-info .meta{ font-size:.78rem; color:var(--muted); margin-top:2px; }
+  .account-card .acc-info .meta{ font-size:.78rem; color:var(--muted); margin-top:2px; direction:ltr; text-align:right; unicode-bidi:plaintext; }
+  .last-seen-badge{
+    display:inline-block; margin-top:6px; font-size:.76rem; font-weight:600;
+    color:var(--teal-light); background:rgba(43,184,159,.12); padding:3px 10px; border-radius:999px;
+  }
+  .last-seen-badge.never{ color:var(--muted); background:rgba(var(--tint-rgb),.08); }
   .status-badge{ padding:4px 12px; border-radius:999px; font-size:.75rem; font-weight:700; white-space:nowrap; }
   .status-badge.pending{ background:rgba(224,167,46,.18); color:var(--amber); }
   .status-badge.approved{ background:rgba(63,161,94,.18); color:var(--green); }
@@ -1263,6 +1268,7 @@ document.getElementById('cp-submit')?.addEventListener('click', async ()=>{
 // ---------- Join as partner (via invite link) ----------
 let INVITE_OWNER_UID = null;
 let INVITE_CODE = null;
+const INVITE_FLOW_ACTIVE = new URLSearchParams(location.search).has('invite');
 (function checkInviteLink(){
   const params = new URLSearchParams(location.search);
   const code = params.get('invite');
@@ -1325,7 +1331,7 @@ fbAuth.onAuthStateChanged(async (user)=>{
     document.getElementById('app-root').classList.add('hidden');
     document.getElementById('super-dashboard').classList.add('hidden');
     document.getElementById('logout-btn').style.display = 'none';
-    showGateView('login');
+    if(!INVITE_FLOW_ACTIVE) showGateView('login'); // an invite link is handling its own screen — don't fight it
     return;
   }
   if(user.uid === SUPER_ADMIN_UID){
@@ -1471,7 +1477,8 @@ function renderAccountsListFromData(accounts){
     return `<div class="account-card">
       <div class="acc-info">
         <div class="name">${escapeHtml(acc.username || '(بدون اسم)')}</div>
-        <div class="meta">${escapeHtml(acc.email || '')} · ${date} · آخر دخول: ${formatLastSeen(acc.lastLogin)}</div>
+        <div class="meta">${escapeHtml(acc.email || '')} · انضم: ${date}</div>
+        <div class="last-seen-badge ${acc.lastLogin ? '' : 'never'}">🕐 آخر دخول: ${formatLastSeen(acc.lastLogin)}</div>
       </div>
       <span class="status-badge ${acc.status}">${statusLabel[acc.status] || acc.status}</span>
       <div class="acc-actions">${actions}</div>
