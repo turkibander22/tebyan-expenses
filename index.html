@@ -2323,12 +2323,14 @@ document.getElementById('import-backup-input').addEventListener('change', functi
 
 function excelStyleExpenseTable(){
   const dayColors = ['#f7ddc3','#d7ecf0','#f5dcc0','#e3d7f0','#d7f0df','#f0d7dc','#dde3f0','#f0ecd7','#d7f0ec','#f0d7ea','#e0f0d7','#d7e0f0','#f0e0d7','#d7f0f0'];
+  const isPair = STATE.accountType === 'pair';
 
   let html = `<table>
     <thead><tr>
       <th class="pr-h-num">رقم</th>
       <th class="pr-h-title">عنوان</th>
       <th class="pr-h-price">السعر</th>
+      ${isPair ? '<th class="pr-h-price">الدافع</th>' : ''}
       <th class="pr-h-notes pr-right">ملاحظات</th>
       <th class="pr-h-day">اليوم</th>
       <th class="pr-h-invoice">الفاتورة</th>
@@ -2346,6 +2348,7 @@ function excelStyleExpenseTable(){
       html += `<td class="pr-num">${it.num ?? ''}</td>
         <td class="pr-title">${escapeHtml(it.title||'')}</td>
         <td class="pr-price">${fmt(it.price)}</td>
+        ${isPair ? `<td class="pr-price">${escapeHtml(payerName(it))}</td>` : ''}
         <td class="pr-notes">${escapeHtml(it.notes||'')}</td>`;
       if(idx===0){
         html += `<td class="pr-general-day" rowspan="${STATE.general.length}">عام<span class="pr-day-date">(غير مرتبط بيوم)</span><span class="pr-day-total">الإجمالي: ${fmt(generalTotal)}</span></td>`;
@@ -2368,6 +2371,7 @@ function excelStyleExpenseTable(){
       html += `<td class="pr-num">${it.num ?? ''}</td>
         <td class="pr-title">${escapeHtml(it.title||'')}</td>
         <td class="pr-price">${fmt(it.price)}</td>
+        ${isPair ? `<td class="pr-price">${escapeHtml(payerName(it))}</td>` : ''}
         <td class="pr-notes">${escapeHtml(it.notes||'')}</td>`;
       if(idx===0){
         const dayLabelPr = DAY_NAMES[i] ? DAY_NAMES[i] : ('رقم '+(i+1));
