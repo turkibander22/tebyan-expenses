@@ -813,7 +813,7 @@
 </header>
 
 <nav class="tabs">
-  <button class="tab-btn active" data-page="home">الرئيسية</button>
+  <button class="tab-btn active" data-page="home" id="tab-home">الرئيسية</button>
   <button class="tab-btn" data-page="daily">المصاريف اليومية</button>
   <button class="tab-btn" data-page="students" id="tab-students">استرداد المبالغ</button>
   <button class="tab-btn" data-page="subs" id="tab-subs">الاشتراكات</button>
@@ -860,9 +860,19 @@
 
   <!-- DAILY -->
   <section class="page" id="page-daily">
-    <div class="section-title">الميزانية العامة (غير مرتبطة بيوم محدد)</div>
+    <div class="cards-row hidden" id="pair-daily-cards">
+      <div class="stat-card consumed"><div class="label">إجمالي الاستهلاك</div><div class="value" id="pair-daily-total-value">-</div></div>
+      <div class="stat-card remaining"><div class="label" id="pair-daily-balance-label">الرصيد بينكم</div><div class="value" id="pair-daily-balance-value">-</div></div>
+    </div>
     <div class="day-block">
-      <div class="day-body open" style="display:block;">
+      <div class="day-head" data-toggle-general="1">
+        <div>
+          <div class="dtitle">الميزانية العامة (غير مرتبطة بيوم محدد)</div>
+          <div class="dsub" id="general-count">0 بند</div>
+        </div>
+        <div class="dtotal" id="general-total">-</div>
+      </div>
+      <div class="day-body open" id="general-body">
         <table class="exp-table" id="general-table"></table>
         <button class="add-row-btn" data-add-general="1">+ إضافة بند عام</button>
       </div>
@@ -1854,12 +1864,15 @@ function applyAccountTypeUI(){
   const isPair = STATE.accountType === 'pair';
   document.getElementById('tab-students').classList.toggle('hidden', isPair);
   document.getElementById('tab-subs').classList.toggle('hidden', isPair);
+  document.getElementById('tab-home').classList.toggle('hidden', isPair);
   document.getElementById('group-home-cards').classList.toggle('hidden', isPair);
-  document.getElementById('pair-home-cards').classList.toggle('hidden', !isPair);
+  document.getElementById('pair-home-cards').classList.add('hidden'); // superseded by the daily-page cards below
+  document.getElementById('pair-daily-cards').classList.toggle('hidden', !isPair);
   if(!isPair) return;
-  // If the user happens to be sitting on a now-hidden page, send them home.
-  if(document.getElementById('page-students')?.classList.contains('active') || document.getElementById('page-subs')?.classList.contains('active')){
-    switchPage('home');
+  // Pair accounts have no home page anymore, and no students/subs pages — land on "المصاريف اليومية" instead.
+  const onHiddenPage = ['page-home','page-students','page-subs'].some(id=> document.getElementById(id)?.classList.contains('active'));
+  if(onHiddenPage){
+    switchPage('daily');
   }
   const ownerName = STATE.ownerName || 'الطرف الأول';
   const partnerName = STATE.partnerName || 'الطرف الثاني';
@@ -1871,15 +1884,15 @@ function applyAccountTypeUI(){
     if(it.createdBy && it.createdBy !== CURRENT_UID) partnerTotal += price;
     else ownerTotal += price; // owner's own items, or legacy items with no createdBy
   });
-  document.getElementById('pair-total-value').textContent = fmt(ownerTotal + partnerTotal);
+  document.getElementById('pair-daily-total-value').textContent = fmt(ownerTotal + partnerTotal);
 
   const iAmPartner = MY_ROLE_ON_ACCOUNT === 'partner';
   const myTotal = iAmPartner ? partnerTotal : ownerTotal;
   const theirTotal = iAmPartner ? ownerTotal : partnerTotal;
   const theirName = iAmPartner ? ownerName : partnerName;
   const net = myTotal - theirTotal; // positive: they owe me; negative: I owe them
-  const label = document.getElementById('pair-balance-label');
-  const value = document.getElementById('pair-balance-value');
+  const label = document.getElementById('pair-daily-balance-label');
+  const value = document.getElementById('pair-daily-balance-value');
   if(Math.abs(net) < 0.01){
     label.textContent = 'الرصيد بينكم';
     value.textContent = 'لا يوجد مبلغ مستحق';
@@ -2079,6 +2092,9 @@ function renderGeneralTable(){
     rows += `<tr><td colspan="${STATE.accountType==='pair'?7:6}" class="empty-note">لا توجد بنود عامة بعد</td></tr>`;
   }
   tbl.innerHTML = rows;
+  const total = STATE.general.reduce((s,it)=> s + (parseFloat(it.price)||0), 0);
+  document.getElementById('general-total').textContent = fmt(total);
+  document.getElementById('general-count').textContent = STATE.general.length + ' بند';
 }
 
 function dayTotal(d){
@@ -2386,6 +2402,28 @@ function renderPrintReport(){
       <span class="pr-sum-consumed">الاستهلاك: ${fmt(consumed)}</span>
       <span class="pr-sum-remaining">المتبقي: ${fmt(budget-consumed)}</span>
     </div>`;
+  } else {
+    const ownerName = STATE.ownerName || 'الطرف الأول';
+    const partnerName = STATE.partnerName || 'الطرف الثاني';
+    let ownerTotal = 0, partnerTotal = 0;
+    allItemsFlat().forEach(it=>{
+      const price = parseFloat(it.price) || 0;
+      if(it.createdBy && it.createdBy !== CURRENT_UID) partnerTotal += price;
+      else ownerTotal += price;
+    });
+    const net = ownerTotal - partnerTotal;
+    let balanceText;
+    if(Math.abs(net) < 0.01) balanceText = 'لا يوجد مبلغ مستحق';
+    else if(net > 0) balanceText = `${partnerName} عليه لـ${ownerName} ${fmt(net)}`;
+    else balanceText = `${ownerName} عليه لـ${partnerName} ${fmt(-net)}`;
+    html += `<div class="pr-summary">
+      <span class="pr-sum-budget">${escapeHtml(ownerName)} دفع: ${fmt(ownerTotal)}</span>
+      <span class="pr-sum-consumed">إجمالي الاستهلاك: ${fmt(ownerTotal+partnerTotal)}</span>
+      <span class="pr-sum-remaining">${escapeHtml(partnerName)} دفع: ${fmt(partnerTotal)}</span>
+    </div>
+    <div class="pr-summary">
+      <span class="pr-sum-consumed">الرصيد بينكم: ${balanceText}</span>
+    </div>`;
   }
 
   html += `<h2>تفاصيل المصاريف والفواتير</h2>`;
@@ -2505,6 +2543,11 @@ document.addEventListener('click', (e)=>{
     const body = document.getElementById('day-body-'+i);
     body.classList.toggle('open');
     if(openDays.has(i)) openDays.delete(i); else openDays.add(i);
+  }
+
+  const toggleGeneral = e.target.closest('[data-toggle-general]');
+  if(toggleGeneral){
+    document.getElementById('general-body').classList.toggle('open');
   }
 
   const thumb = e.target.closest('.thumb');
