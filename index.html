@@ -689,7 +689,7 @@
 
   <div class="login-box hidden" id="gate-view-linkemail">
     <h2>ربط بريد لاستعادة الرمز</h2>
-    <p>يثبّت بريدك الإلكتروني بحسابك عشان تقدر تسترجع الرمز لو نسيته لاحقًا</p>
+    <p>يثبّت بريدك الإلكتروني بحسابك لتتمكن من استرجاع الرمز في حال نسيانه لاحقًا</p>
     <input type="text" id="le-user" placeholder="اسم المستخدم" autocomplete="username">
     <input type="password" id="le-pass" placeholder="الرمز الحالي" autocomplete="current-password">
     <input type="email" id="le-email" placeholder="بريدك الإلكتروني" autocomplete="email">
@@ -775,7 +775,7 @@
 <div id="invite-modal" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:3000; display:flex; align-items:center; justify-content:center; padding:20px;">
   <div class="login-box">
     <h2>🤝 دعوة الطرف الثاني</h2>
-    <p>انسخ الرابط وأرسله للطرف الثاني (واتساب مثلًا) عشان يسجّل حسابه الخاص وينضم لنفس البيانات</p>
+    <p>انسخ الرابط وأرسله للطرف الثاني (واتساب مثلًا) لكي يسجّل حسابه الخاص وينضم إلى نفس البيانات</p>
     <input type="text" id="invite-link-box" readonly style="text-align:center; direction:ltr;">
     <button id="invite-copy-btn">نسخ الرابط</button>
     <button class="link-btn" id="invite-close-btn" type="button">إغلاق</button>
@@ -981,7 +981,11 @@
       <input type="number" step="0.01" id="item-price">
     </div>
     <div class="form-field">
-      <label>يروح تحت أي مجموعة بتقرير "توزيع الإجمالي"؟</label>
+      <label>التاريخ</label>
+      <input type="date" id="item-date">
+    </div>
+    <div class="form-field">
+      <label>يندرج تحت أي مجموعة في تقرير "التوزيع الإجمالي"؟</label>
       <select id="item-group-select"></select>
     </div>
     <div class="form-field" id="item-group-other-wrap" style="display:none;">
@@ -989,8 +993,8 @@
       <input type="text" id="item-group-other">
     </div>
     <div class="form-field">
-      <label>ملاحظات — من دفع؟ (اختياري)</label>
-      <input type="text" id="item-notes" placeholder="مثال: اسم اللي دفع أو أي ملاحظة">
+      <label>ملاحظات — من قام بالدفع؟ (اختياري)</label>
+      <input type="text" id="item-notes" placeholder="مثال: اسم من قام بالدفع أو أي ملاحظة">
     </div>
     <div class="form-field">
       <label>صورة الفاتورة (اختياري)</label>
@@ -1001,7 +1005,7 @@
       </div>
     </div>
     <div class="link-student-box" id="link-student-box">
-      <label><input type="checkbox" id="item-link-student-chk"> هذي الفاتورة تخص أحد المشتركين؟</label>
+      <label><input type="checkbox" id="item-link-student-chk"> هل هذه الفاتورة تخص أحد المشتركين؟</label>
       <select id="item-link-student-select" style="display:none;"></select>
     </div>
     <div class="form-actions">
@@ -1517,8 +1521,8 @@ async function requestAccess(uid){
   }
 }
 async function deleteAccount(uid, username){
-  if(!confirm(`⚠️ بيتم حذف حساب "${username || uid}" وكل بياناته (مصاريف، مشتركين، اشتراكات) نهائيًا من النظام. ما فيه رجعة إلا لو عندك نسخة احتياطية. متأكد تبي تكمل؟`)) return;
-  if(!confirm('تأكيد أخير: الحذف نهائي ولا يمكن التراجع عنه. متأكد ١٠٠٪؟')) return;
+  if(!confirm(`⚠️ سيتم حذف حساب "${username || uid}" وكل بياناته (مصاريف، مشتركين، اشتراكات) نهائيًا من النظام. ولا يمكن التراجع عن هذا إلا إذا كانت لديك نسخة احتياطية. هل أنت متأكد من رغبتك في المتابعة؟`)) return;
+  if(!confirm('تأكيد أخير: الحذف نهائي ولا يمكن التراجع عنه. هل أنت متأكد تمامًا؟')) return;
   try{
     await fbDb.ref('accounts/' + uid).remove();
   }catch(e){
@@ -1851,7 +1855,7 @@ function computeConsumed(){
 }
 
 function computeBudget(){
-  // الميزانية الأصلية = مجموع رسوم كل المشتركين (صفحة الاشتراكات)، مو رقم ثابت.
+  // الميزانية الأصلية = مجموع رسوم كل المشتركين (صفحة الاشتراكات)، وليس رقماً ثابتاً.
   if(!STATE.subscriptions) return 0;
   return STATE.subscriptions.reduce((s,x)=> s + (parseFloat(x.amount)||0), 0);
 }
@@ -1966,7 +1970,7 @@ function renderSubscriptions(){
     </tr>`;
   });
   if(STATE.subscriptions.length===0){
-    html = `<tr><td colspan="5" class="empty-note">ما فيه مشتركين مضافين بعد</td></tr>`;
+    html = `<tr><td colspan="5" class="empty-note">لا يوجد مشتركون مضافون بعد</td></tr>`;
   }
   tbody.innerHTML = html;
 }
@@ -2009,7 +2013,7 @@ document.getElementById('sub-form-save').addEventListener('click', async ()=>{
     existing.name = name; existing.amount = amount; existing.status = status;
   } else {
     STATE.subscriptions.push({name, amount, status});
-    // نضيفه تلقائياً بقائمة "المشتركين واسترداد المبالغ" لو مو موجود فيها أصلاً
+    // نضيفه تلقائياً بقائمة "المشتركين واسترداد المبالغ" إن لم تكن موجودة فيها أصلاً
     const alreadyThere = STATE.students.some(s => s.name.trim() === name);
     if(!alreadyThere){
       const nextM = STATE.students.length ? Math.max(...STATE.students.map(s=>s.m||0))+1 : 1;
@@ -2049,8 +2053,8 @@ function invoiceImgSrc(num){
 function tableHeaderRow(){
   const payerTh = STATE.accountType === 'pair' ? '<th>الدافع</th>' : '';
   return readOnlyMode()
-    ? `<tr><th>رقم</th><th>البند</th><th>السعر</th>${payerTh}<th>ملاحظات</th><th>الفاتورة</th></tr>`
-    : `<tr><th>رقم</th><th>البند</th><th>السعر</th>${payerTh}<th>ملاحظات</th><th>الفاتورة</th><th></th></tr>`;
+    ? `<tr><th>رقم</th><th>البند</th><th>السعر</th>${payerTh}<th>التاريخ</th><th>ملاحظات</th><th>الفاتورة</th></tr>`
+    : `<tr><th>رقم</th><th>البند</th><th>السعر</th>${payerTh}<th>التاريخ</th><th>ملاحظات</th><th>الفاتورة</th><th></th></tr>`;
 }
 function payerName(it){
   if(STATE.accountType !== 'pair') return '';
@@ -2074,15 +2078,25 @@ function tableRowHtml(it, ctx){
       <button class="icon-btn" data-del="${ctx.kind}|${ctx.dayIndex ?? ''}|${it.__idx}">🗑️</button>
     </div></td>`);
   const payerCell = STATE.accountType === 'pair' ? `<td class="payer-cell">${escapeHtml(payerName(it))}</td>` : '';
+  const dateCell = `<td class="date-cell">${formatItemDate(it.date)}</td>`;
   return `<tr>
     <td>${it.num ?? ''}</td>
     <td class="title-cell">${escapeHtml(it.title||'')}</td>
     <td>${fmt(it.price)}</td>
     ${payerCell}
+    ${dateCell}
     <td class="notes-cell">${escapeHtml(it.notes||'')}</td>
     <td>${imgCell}</td>
     ${actionsCell}
   </tr>`;
+}
+function formatItemDate(d){
+  if(!d) return '-';
+  try{
+    const parts = String(d).split('-');
+    if(parts.length===3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return d;
+  }catch(e){ return d; }
 }
 
 function escapeHtml(s){
@@ -2097,7 +2111,7 @@ function renderGeneralTable(){
     rows += tableRowHtml(it, {kind:'general'});
   });
   if(STATE.general.length===0){
-    rows += `<tr><td colspan="${STATE.accountType==='pair'?7:6}" class="empty-note">لا توجد بنود عامة بعد</td></tr>`;
+    rows += `<tr><td colspan="${STATE.accountType==='pair'?8:7}" class="empty-note">لا توجد بنود عامة بعد</td></tr>`;
   }
   tbl.innerHTML = rows;
   const total = STATE.general.reduce((s,it)=> s + (parseFloat(it.price)||0), 0);
@@ -2120,7 +2134,7 @@ function renderDaily(){
     let rows = tableHeaderRow();
     d.items.forEach((it, idx)=>{ it.__idx = idx; rows += tableRowHtml(it, {kind:'day', dayIndex:i}); });
     if(d.items.length===0){
-      rows += `<tr><td colspan="${STATE.accountType==='pair'?7:6}" class="empty-note">لا توجد مصاريف مسجلة لهذا اليوم بعد</td></tr>`;
+      rows += `<tr><td colspan="${STATE.accountType==='pair'?8:7}" class="empty-note">لا توجد مصاريف مسجلة لهذا اليوم بعد</td></tr>`;
     }
     const dateEditBtn = readOnlyMode() ? '' : `<button class="icon-btn" data-edit-date="${i}" title="إضافة/تعديل تاريخ" style="padding:2px 5px; font-size:.75rem;">✏️</button>`;
     // لو ما فيه تاريخ محدد، نعرضه كـ"لقاء" برقمه بدون أي تخمين لتاريخ.
@@ -2184,7 +2198,7 @@ function renderStudents(){
     </tr>`;
   });
   if(withDebt.length===0){
-    html = `<tr><td colspan="5" class="empty-note">ما فيه مشتركين عليهم مبالغ مسترجعة حالياً</td></tr>`;
+    html = `<tr><td colspan="5" class="empty-note">لا يوجد مشتركون عليهم مبالغ مستحقة الاسترجاع حالياً</td></tr>`;
   }
   tbody.innerHTML = html;
 }
@@ -2269,8 +2283,8 @@ async function forceSaveState(){
 
 document.getElementById('clear-all-btn').addEventListener('click', async ()=>{
   if(readOnlyMode()) return;
-  if(!confirm('⚠️ هذا بيمسح كل البيانات نهائياً (المصاريف، استرداد المبالغ، الاشتراكات، الصور، كل شي) — ما فيه رجعة إلا لو عندك نسخة احتياطية محفوظة. متأكد تبي تكمل؟')) return;
-  if(!confirm('تأكيد أخير: بيصير الموقع فاضي بالكامل. متأكد ١٠٠٪؟')) return;
+  if(!confirm('⚠️ سيؤدي هذا إلى محو جميع البيانات نهائياً (المصاريف، استرداد المبالغ، الاشتراكات، الصور، وكل شيء) — ولا يمكن التراجع عن هذا إلا إذا كانت لديك نسخة احتياطية محفوظة. هل أنت متأكد من رغبتك في المتابعة؟')) return;
+  if(!confirm('تأكيد أخير: سيصبح الموقع فارغاً بالكامل. هل أنت متأكد تمامًا؟')) return;
 
   const keepTitle = STATE.siteTitle;
   const keepSubtitle = STATE.siteSubtitle;
@@ -2283,7 +2297,7 @@ document.getElementById('clear-all-btn').addEventListener('click', async ()=>{
   openDays = new Set([0]);
   render();
   saveState();
-  alert('تم محو كل البيانات. الميزانية الحين بتتكون تلقائياً من صفحة "الاشتراكات" أول ما تضيف رسوم المشتركين.');
+  alert('تم محو جميع البيانات. ستتكون الميزانية تلقائياً من صفحة "الاشتراكات" بمجرد إضافة رسوم المشتركين.');
 });
 
 document.getElementById('export-backup-btn').addEventListener('click', ()=>{
@@ -2311,17 +2325,17 @@ document.getElementById('import-backup-input').addEventListener('change', functi
     try{
       const parsed = JSON.parse(ev.target.result);
       if(!parsed.general || !parsed.days || !parsed.students){
-        alert('هذا الملف مو نسخة احتياطية صحيحة.');
+        alert('هذا الملف ليس نسخة احتياطية صحيحة.');
         return;
       }
-      if(!confirm('استيراد هذي النسخة بيستبدل كل البيانات الحالية. متأكد؟')) return;
+      if(!confirm('سيؤدي استيراد هذه النسخة إلى استبدال جميع البيانات الحالية. هل أنت متأكد؟')) return;
       STATE = parsed;
       ensureCategories(); ensureCategoryGroups(); ensureSiteMeta();
       await forceSaveState();
       render();
       alert('تم الاستيراد بنجاح.');
     }catch(e){
-      alert('تعذر قراءة الملف. تأكد إنه ملف JSON صحيح.');
+      alert('تعذر قراءة الملف. تأكد من أنه ملف JSON صحيح.');
     }
     this_input_reset();
   };
@@ -2339,6 +2353,7 @@ function excelStyleExpenseTable(){
       <th class="pr-h-title">عنوان</th>
       <th class="pr-h-price">السعر</th>
       ${isPair ? '<th class="pr-h-price">الدافع</th>' : ''}
+      <th class="pr-h-price">التاريخ</th>
       <th class="pr-h-notes pr-right">ملاحظات</th>
       <th class="pr-h-day">اليوم</th>
       <th class="pr-h-invoice">الفاتورة</th>
@@ -2357,6 +2372,7 @@ function excelStyleExpenseTable(){
         <td class="pr-title">${escapeHtml(it.title||'')}</td>
         <td class="pr-price">${fmt(it.price)}</td>
         ${isPair ? `<td class="pr-price">${escapeHtml(payerName(it))}</td>` : ''}
+        <td class="pr-price">${formatItemDate(it.date)}</td>
         <td class="pr-notes">${escapeHtml(it.notes||'')}</td>`;
       if(idx===0){
         html += `<td class="pr-general-day" rowspan="${STATE.general.length}">عام<span class="pr-day-date">(غير مرتبط بيوم)</span><span class="pr-day-total">الإجمالي: ${fmt(generalTotal)}</span></td>`;
@@ -2380,6 +2396,7 @@ function excelStyleExpenseTable(){
         <td class="pr-title">${escapeHtml(it.title||'')}</td>
         <td class="pr-price">${fmt(it.price)}</td>
         ${isPair ? `<td class="pr-price">${escapeHtml(payerName(it))}</td>` : ''}
+        <td class="pr-price">${formatItemDate(it.date)}</td>
         <td class="pr-notes">${escapeHtml(it.notes||'')}</td>`;
       if(idx===0){
         const dayLabelPr = DAY_NAMES[i] ? DAY_NAMES[i] : ('رقم '+(i+1));
@@ -2590,8 +2607,8 @@ document.addEventListener('click', (e)=>{
     if(STATE.accountType === 'pair' && it?.createdBy && MY_UID && it.createdBy !== MY_UID){ return; }
     const linkedNames = it ? findStudentsLinkedToInvoice(it.num).map(s=>s.name) : [];
     const warnMsg = linkedNames.length
-      ? `هذا البند مرتبط بـ: ${linkedNames.join('، ')}. حذفه بيشيل الربط والمبلغ من عندهم تلقائياً. متأكد؟`
-      : 'متأكد تبي تحذف هذا البند؟';
+      ? `هذا البند مرتبط بـ: ${linkedNames.join('، ')}. حذفه سيزيل الربط والمبلغ من عندهم تلقائياً. هل أنت متأكد؟`
+      : 'هل أنت متأكد من حذف هذا البند؟';
     if(confirm(warnMsg)){
       if(it) unlinkInvoiceFromStudents(it.num, it.price);
       if(kind==='general') STATE.general.splice(idx,1);
@@ -2615,7 +2632,7 @@ document.addEventListener('click', (e)=>{
 
   const delStudent = e.target.closest('[data-del-student]');
   if(delStudent){
-    if(confirm('متأكد تبي تحذف هذا المشترك؟')){
+    if(confirm('هل أنت متأكد من حذف هذا المشترك؟')){
       STATE.students.splice(parseInt(delStudent.dataset.delStudent),1);
       render(); saveState();
     }
@@ -2626,7 +2643,7 @@ document.addEventListener('click', (e)=>{
 
   const delSub = e.target.closest('[data-del-sub]');
   if(delSub){
-    if(confirm('متأكد تبي تحذف هذا الاشتراك؟')){
+    if(confirm('هل أنت متأكد من حذف هذا الاشتراك؟')){
       STATE.subscriptions.splice(parseInt(delSub.dataset.delSub),1);
       render(); saveState();
     }
@@ -2707,10 +2724,10 @@ document.getElementById('import-excel-input').addEventListener('change', functio
       if(added>0) STATE.lastSubAmount = STATE.subscriptions[STATE.subscriptions.length-1].amount;
       render();
       saveState();
-      alert(`تم استيراد ${added} مشترك جديد.` + (skippedDup? ` (تجاهلت ${skippedDup} مكرر)`:'') + (skippedBad? ` (تجاهلت ${skippedBad} صف مو بصيغة صحيحة)`:''));
+      alert(`تم استيراد ${added} مشترك جديد.` + (skippedDup? ` (تجاهلت ${skippedDup} مكرر)`:'') + (skippedBad? ` (تجاهلت ${skippedBad} صف بصيغة غير صحيحة)`:''));
     }catch(e){
       console.error(e);
-      alert('تعذر قراءة الملف. تأكد إنه ملف إكسل صحيح (xlsx أو xls أو csv).');
+      alert('تعذر قراءة الملف. تأكد من أنه ملف إكسل صحيح (xlsx أو xls أو csv).');
     }
     this_input_reset();
   };
@@ -2751,7 +2768,7 @@ document.getElementById('logo-file-input').addEventListener('change', function()
   this.value = '';
 });
 document.getElementById('remove-logo-btn').addEventListener('click', async ()=>{
-  if(!confirm('تبي تشيل الشعار؟')) return;
+  if(!confirm('هل تريد إزالة الشعار؟')) return;
   STATE.logo = null;
   render();
   saveState();
@@ -2923,6 +2940,7 @@ function openItemForm(ctx, existing=null){
   populateCategorySelect(existing ? existing.title : null);
   document.getElementById('item-cat-other').value = existing && !STATE.categories.includes(existing.title) ? existing.title : '';
   document.getElementById('item-price').value = existing ? existing.price : '';
+  document.getElementById('item-date').value = existing ? (existing.date || new Date().toISOString().slice(0,10)) : new Date().toISOString().slice(0,10);
   document.getElementById('item-notes').value = existing ? (existing.notes||'') : '';
   populateGroupSelect(existing ? existing.title : null);
   populateStudentLinkSelect();
@@ -2959,6 +2977,7 @@ document.getElementById('item-form-save').addEventListener('click', async ()=>{
     if(!STATE.categories.includes(title)) STATE.categories.push(title);
   }
   const price = parseFloat(document.getElementById('item-price').value) || 0;
+  const itemDate = document.getElementById('item-date').value || new Date().toISOString().slice(0,10);
   const notes = document.getElementById('item-notes').value.trim();
 
   const groupSel = document.getElementById('item-group-select');
@@ -2973,12 +2992,13 @@ document.getElementById('item-form-save').addEventListener('click', async ()=>{
   if(itemFormExisting){
     itemFormExisting.title = title;
     itemFormExisting.price = price;
+    itemFormExisting.date = itemDate;
     itemFormExisting.notes = notes;
     itemNum = itemFormExisting.num;
   } else {
     const allNums = allItemsFlat().map(it=>it.num||0);
     itemNum = allNums.length ? Math.max(...allNums)+1 : 1;
-    const newItem = {num: itemNum, title, price, notes};
+    const newItem = {num: itemNum, title, price, date: itemDate, notes};
     if(STATE.accountType === 'pair' && MY_UID) newItem.createdBy = MY_UID;
     if(itemFormCtx.kind==='general') STATE.general.push(newItem);
     else STATE.days[itemFormCtx.dayIndex].items.push(newItem);
