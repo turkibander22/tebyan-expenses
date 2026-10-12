@@ -668,6 +668,11 @@
     #print-report table.pr-group-items-table td.pr-num{ color:#375623; font-weight:700; width:110px; }
     #print-report table.pr-group-items-table td.pr-right{ text-align:right; color:#333; }
   }
+#project-bar{display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; padding:10px 14px; max-width:1100px; margin:0 auto;}
+#project-bar.hidden{display:none;}
+#project-bar label{font-weight:700; font-size:.9rem;}
+#project-bar select{flex:1 1 180px; max-width:340px; padding:9px 10px; border-radius:10px; border:1px solid #cfd8dc; font-family:inherit; font-size:.95rem; background:#fff; color:inherit;}
+#project-bar button{padding:9px 14px; border-radius:10px; border:0; background:var(--teal); color:#fff; font-family:inherit; font-weight:700; cursor:pointer;}
 </style>
 </head>
 <body>
@@ -734,6 +739,7 @@
     <input type="password" id="join-pass2" placeholder="تأكيد الرمز" autocomplete="new-password">
     <button id="join-submit">انضمام</button>
     <div class="login-error" id="join-error"></div>
+    <button class="link-btn" id="join-existing-btn" type="button">لدي حساب بالفعل — تسجيل الدخول للانضمام</button>
     <button class="link-btn" id="join-back-btn" type="button">رجوع لتسجيل الدخول</button>
   </div>
 
@@ -782,6 +788,18 @@
   </div>
 </div>
 
+<div id="new-project-modal" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:3000; display:flex; align-items:center; justify-content:center; padding:20px;">
+  <div class="login-box">
+    <h2>➕ مشروع جديد</h2>
+    <p>لكل مشروع بياناته الخاصة، ولا يطّلع عليها إلا طرفاه.</p>
+    <input type="text" id="np-other" placeholder="اسم الطرف الآخر (مثال: بندر)">
+    <input type="text" id="np-name" placeholder="اسم المشروع (اختياري)">
+    <button id="np-submit">إنشاء المشروع</button>
+    <button class="link-btn" id="np-cancel" type="button">إلغاء</button>
+    <div class="login-error" id="np-error"></div>
+  </div>
+</div>
+
 <div id="change-pass-modal" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:3000; display:flex; align-items:center; justify-content:center; padding:20px;">
   <div class="login-box">
     <h2>تغيير الرمز</h2>
@@ -819,6 +837,12 @@
   </div>
   <input type="file" id="logo-file-input" accept="image/*" style="display:none;">
 </header>
+
+<div id="project-bar" class="hidden">
+  <label for="project-select">المشروع:</label>
+  <select id="project-select"></select>
+  <button type="button" id="new-project-btn">➕ مشروع جديد</button>
+</div>
 
 <nav class="tabs">
   <button class="tab-btn active" data-page="home" id="tab-home">الرئيسية</button>
@@ -1084,6 +1108,11 @@ let CURRENT_ROLE = null;      // 'admin' | 'super'
 let IS_IMPERSONATING = false; // true while the super admin is viewing/editing another admin's data
 let MY_UID = null;            // this logged-in person's own uid (differs from CURRENT_UID for a partner member)
 let MY_ROLE_ON_ACCOUNT = null; // 'owner' | 'partner' — who is actually logged in, for pair accounts
+let PROJECT_OWNER_UID = null; // uid of the person who created the active pair project
+let ACTIVE_PROJECT = null;    // {id, ownerUid, name, partnerUid}
+let MY_PROJECTS = [];
+let MY_PROFILE = null;
+let PROJECT_TEMPLATE = null;  // seed values for a brand-new project's first state
 let PARTNER_UID = null;        // the other party's uid, for pair accounts (whichever role I'm not)
 
 function readOnlyMode(){ return false; }
@@ -1288,7 +1317,7 @@ document.getElementById('cp-submit')?.addEventListener('click', async ()=>{
 });
 
 // ---------- Join as partner (via invite link) ----------
-let INVITE_OWNER_UID = null;
+let INVITE_PID = null;
 let INVITE_CODE = null;
 const INVITE_FLOW_ACTIVE = new URLSearchParams(location.search).has('invite');
 (function checkInviteLink(){
@@ -1298,7 +1327,7 @@ const INVITE_FLOW_ACTIVE = new URLSearchParams(location.search).has('invite');
   INVITE_CODE = code;
   fbDb.ref('inviteCodes/' + code).get().then(snap=>{
     if(snap.exists()){
-      INVITE_OWNER_UID = snap.val();
+      INVITE_PID = snap.val();
       showGateView('join');
     } else {
       document.getElementById('join-invite-desc').textContent = 'رابط الدعوة غير صالح أو انتهى.';
@@ -1308,7 +1337,37 @@ const INVITE_FLOW_ACTIVE = new URLSearchParams(location.search).has('invite');
   }).catch(()=>{});
 })();
 document.getElementById('join-back-btn')?.addEventListener('click', ()=> showGateView('login'));
+document.getElementById('join-existing-btn')?.addEventListener('click', ()=> showGateView('login')); // after login the pending invite is offered automatically
 document.getElementById('join-submit')?.addEventListener('click', doJoinAsPartner);
+// Adds `uid` as the second member of project `pid` (the invite must still be open).
+async function joinProject(pid, uid, code){
+  await fbDb.ref('projects/' + pid + '/members/' + uid).set(true);
+  await fbDb.ref('accounts/' + uid + '/projects/' + pid).set(true);
+  await fbDb.ref('projects/' + pid + '/partnerUid').set(uid);
+  await fbDb.ref('projects/' + pid + '/inviteOpen').remove();
+  if(code) await fbDb.ref('inviteCodes/' + code).remove();
+}
+// A signed-in user who opened an invite link: offer to join that project with the existing account.
+async function handlePendingInvite(){
+  if(!INVITE_CODE || !INVITE_PID) return;
+  const code = INVITE_CODE, pid = INVITE_PID;
+  INVITE_CODE = null; INVITE_PID = null;
+  history.replaceState(null, '', location.pathname);
+  if(MY_PROJECTS.some(x=> x.id === pid)) return; // already a member
+  try{
+    const ps = await fbDb.ref('projects/' + pid).get();
+    const proj = ps.exists() ? ps.val() : null;
+    if(!proj || !proj.inviteOpen || proj.ownerUid === MY_UID){ alert('رابط الدعوة غير صالح أو انتهت صلاحيته.'); return; }
+    if(!confirm('تمت دعوتك للانضمام إلى مشروع «' + (proj.name || 'مشروع') + '».\nهل تريد الانضمام إليه بحسابك الحالي؟')) return;
+    await joinProject(pid, MY_UID, code);
+    await loadMyProjects();
+    ACTIVE_PROJECT = MY_PROJECTS.find(x=> x.id === pid) || ACTIVE_PROJECT;
+    try{ localStorage.setItem('active-project-' + MY_UID, pid); }catch(e){}
+  }catch(e){
+    console.error('invite join failed', e);
+    alert('تعذر الانضمام إلى المشروع. ربما سبقك طرف آخر أو انتهت الدعوة.');
+  }
+}
 async function doJoinAsPartner(){
   const u = document.getElementById('join-user').value.trim();
   const emailInput = document.getElementById('join-email').value.trim();
@@ -1316,7 +1375,7 @@ async function doJoinAsPartner(){
   const p2 = document.getElementById('join-pass2').value;
   const errEl = document.getElementById('join-error');
   errEl.style.display = 'none';
-  if(!INVITE_OWNER_UID){ errEl.textContent = 'رابط الدعوة غير صالح.'; errEl.style.display='block'; return; }
+  if(!INVITE_PID){ errEl.textContent = 'رابط الدعوة غير صالح.'; errEl.style.display='block'; return; }
   if(!USERNAME_RE.test(u)){ errEl.textContent = 'اسم المستخدم لازم يكون حروف إنجليزية أو أرقام فقط (٣ إلى ٢٠ رمز)'; errEl.style.display='block'; return; }
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput)){ errEl.textContent = 'أدخل بريد إلكتروني صحيح'; errEl.style.display='block'; return; }
   if(p.length < 6){ errEl.textContent = 'الرمز لازم يكون ٦ أحرف على الأقل'; errEl.style.display='block'; return; }
@@ -1325,14 +1384,15 @@ async function doJoinAsPartner(){
   try{
     const cred = await fbAuth.createUserWithEmailAndPassword(emailInput, p);
     await fbDb.ref('accounts/' + cred.user.uid).set({
-      username: u, email: emailInput, status: 'approved', role: 'partner',
-      linkedAccountUid: INVITE_OWNER_UID, createdAt: Date.now()
+      username: u, email: emailInput, status: 'approved', role: 'member',
+      accountType: 'pair', invitedTo: INVITE_PID, createdAt: Date.now()
     });
     await fbDb.ref('usernameEmailMap/' + u).set(emailInput);
-    await fbDb.ref('accounts/' + INVITE_OWNER_UID + '/partnerUid').set(cred.user.uid);
-    await fbDb.ref('accounts/' + INVITE_OWNER_UID + '/inviteCode').remove();
-    await fbDb.ref('inviteCodes/' + INVITE_CODE).remove();
+    await joinProject(INVITE_PID, cred.user.uid, INVITE_CODE);
+    INVITE_CODE = null; INVITE_PID = null;
     history.replaceState(null, '', location.pathname);
+    IS_REGISTERING = false;
+    await enterApp(cred.user, { username: u, email: emailInput, status: 'approved', role: 'member', accountType: 'pair' });
   }catch(e){
     console.error('join failed', e);
     if(e.code === 'auth/email-already-in-use') errEl.textContent = 'هذا البريد مستخدم من قبل لحساب آخر';
@@ -1371,18 +1431,75 @@ fbAuth.onAuthStateChanged(async (user)=>{
   }catch(e){ profile = null; }
   if(!profile || profile.status === 'pending'){ showGateView('pending'); return; }
   if(profile.status === 'rejected'){ showGateView('rejected'); return; }
-  // approved
-  MY_UID = user.uid;
+  await enterApp(user, profile);
+});
+
+function isPairProfile(profile){
+  return profile.accountType === 'pair' || profile.role === 'partner' || profile.role === 'member';
+}
+// Reads this user's project list (accounts/{uid}/projects), migrating legacy single-project pair accounts.
+async function loadMyProjects(){
+  const uid = MY_UID, profile = MY_PROFILE;
+  const mine = fbDb.ref('accounts/' + uid + '/projects');
+  const ids = Object.keys((await mine.get()).val() || {});
   if(profile.role === 'partner' && profile.linkedAccountUid){
-    CURRENT_UID = profile.linkedAccountUid; MY_ROLE_ON_ACCOUNT = 'partner'; PARTNER_UID = MY_UID;
-  } else {
-    CURRENT_UID = user.uid; MY_ROLE_ON_ACCOUNT = 'owner';
+    // legacy second party: the shared data still lives at adminData/{owner uid}
+    const pid = profile.linkedAccountUid;
+    if(!ids.includes(pid)){ await mine.child(pid).set(true); ids.push(pid); }
+  } else if(profile.accountType === 'pair' && profile.role !== 'member' && !ids.includes(uid)){
+    // legacy owner: the existing data becomes the first project (project id = owner uid)
+    const members = {}; members[uid] = true;
+    if(profile.partnerUid) members[profile.partnerUid] = true;
+    const rec = { ownerUid: uid, name: profile.programName || 'مشروعي', createdAt: profile.createdAt || Date.now(), members };
+    if(profile.partnerUid) rec.partnerUid = profile.partnerUid;
     try{
-      const pSnap = await fbDb.ref('accounts/' + CURRENT_UID + '/partnerUid').get();
-      PARTNER_UID = pSnap.exists() ? pSnap.val() : null;
-    }catch(e){ PARTNER_UID = null; }
+      const ex = await fbDb.ref('projects/' + uid).get();
+      if(!ex.exists()) await fbDb.ref('projects/' + uid).set(rec);
+    }catch(e){ console.error('project migration failed', e); }
+    await mine.child(uid).set(true);
+    ids.push(uid);
   }
+  const list = [];
+  for(const pid of ids){
+    let rec = null;
+    try{ const sn = await fbDb.ref('projects/' + pid).get(); rec = sn.exists() ? sn.val() : null; }catch(e){}
+    list.push({
+      id: pid, ownerUid: (rec && rec.ownerUid) || pid, name: (rec && rec.name) || 'المشروع',
+      partnerUid: (rec && rec.partnerUid) || null, createdAt: (rec && rec.createdAt) || 0
+    });
+  }
+  list.sort((x,y)=> x.createdAt - y.createdAt);
+  MY_PROJECTS = list;
+}
+function bindProject(p){
+  ACTIVE_PROJECT = p;
+  CURRENT_UID = p.id;
+  PROJECT_OWNER_UID = p.ownerUid;
+  MY_ROLE_ON_ACCOUNT = (p.ownerUid === MY_UID) ? 'owner' : 'partner';
+  PARTNER_UID = (p.ownerUid === MY_UID) ? p.partnerUid : p.ownerUid;
+}
+async function enterApp(user, profile){
+  MY_UID = user.uid;
+  MY_PROFILE = profile;
   CURRENT_ROLE = 'admin'; IS_IMPERSONATING = false;
+  PROJECT_OWNER_UID = null; ACTIVE_PROJECT = null; MY_PROJECTS = [];
+  if(isPairProfile(profile)){
+    try{
+      await loadMyProjects();
+      await handlePendingInvite();
+    }catch(e){ console.error('projects load failed', e); }
+    if(MY_PROJECTS.length === 0){
+      alert('تعذر تحميل مشاريعك. تحقق من قواعد الأمان في فايربيس ثم أعد المحاولة.');
+      fbAuth.signOut();
+      return;
+    }
+    let saved = null;
+    try{ saved = localStorage.getItem('active-project-' + MY_UID); }catch(e){}
+    bindProject(ACTIVE_PROJECT && MY_PROJECTS.some(x=> x.id === ACTIVE_PROJECT.id) ? MY_PROJECTS.find(x=> x.id === ACTIVE_PROJECT.id)
+      : (MY_PROJECTS.find(x=> x.id === saved) || MY_PROJECTS[0]));
+  } else {
+    CURRENT_UID = user.uid; MY_ROLE_ON_ACCOUNT = 'owner'; PARTNER_UID = null; PROJECT_OWNER_UID = user.uid;
+  }
   fbDb.ref('accounts/' + MY_UID + '/lastLogin').set(Date.now()).catch(()=>{});
   hideGate();
   document.getElementById('super-dashboard').classList.add('hidden');
@@ -1391,20 +1508,82 @@ fbAuth.onAuthStateChanged(async (user)=>{
   document.getElementById('logout-btn').style.display = '';
   await loadState();
   ensureCategories(); ensureCategoryGroups(); ensureSiteMeta();
+  renderProjectBar();
   render();
   await showAdminNotifications();
   attachLiveDataListener();
   attachAccessRequestListener();
   await updateInvitePartnerVisibility();
+}
+
+// ---------- Multiple projects (pair accounts) ----------
+function renderProjectBar(){
+  const bar = document.getElementById('project-bar');
+  const show = !!MY_PROFILE && isPairProfile(MY_PROFILE) && !IS_IMPERSONATING;
+  bar.classList.toggle('hidden', !show);
+  if(!show) return;
+  const sel = document.getElementById('project-select');
+  sel.innerHTML = MY_PROJECTS.map(p=> `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('');
+  if(ACTIVE_PROJECT) sel.value = ACTIVE_PROJECT.id;
+}
+async function switchProject(pid){
+  const p = MY_PROJECTS.find(x=> x.id === pid);
+  if(!p || (ACTIVE_PROJECT && ACTIVE_PROJECT.id === pid)) return;
+  detachLiveDataListener();
+  bindProject(p);
+  try{ localStorage.setItem('active-project-' + MY_UID, pid); }catch(e){}
+  openDays = new Set([0]);
+  await loadState();
+  ensureCategories(); ensureCategoryGroups(); ensureSiteMeta();
+  renderProjectBar();
+  render();
+  attachLiveDataListener();
+  await updateInvitePartnerVisibility();
+}
+document.getElementById('project-select')?.addEventListener('change', (e)=> switchProject(e.target.value));
+document.getElementById('new-project-btn')?.addEventListener('click', ()=>{
+  document.getElementById('np-other').value = '';
+  document.getElementById('np-name').value = '';
+  document.getElementById('np-error').style.display = 'none';
+  document.getElementById('new-project-modal').classList.remove('hidden');
+});
+document.getElementById('np-cancel')?.addEventListener('click', ()=> document.getElementById('new-project-modal').classList.add('hidden'));
+document.getElementById('np-submit')?.addEventListener('click', async ()=>{
+  const other = document.getElementById('np-other').value.trim();
+  const errEl = document.getElementById('np-error');
+  errEl.style.display = 'none';
+  if(!other){ errEl.textContent = 'أدخل اسم الطرف الآخر'; errEl.style.display = 'block'; return; }
+  const myName = (MY_PROFILE && (MY_PROFILE.ownerName || MY_PROFILE.username)) || 'أنا';
+  const name = document.getElementById('np-name').value.trim() || (myName + ' مع ' + other);
+  try{
+    const pid = fbDb.ref('projects').push().key; // ids start with "-" so they can never collide with a user uid
+    const members = {}; members[MY_UID] = true;
+    await fbDb.ref('projects/' + pid).set({ ownerUid: MY_UID, name, createdAt: Date.now(), members });
+    await fbDb.ref('accounts/' + MY_UID + '/projects/' + pid).set(true);
+    PROJECT_TEMPLATE = { siteTitle: name, ownerName: myName, partnerName: other };
+    MY_PROJECTS.push({ id: pid, ownerUid: MY_UID, name, partnerUid: null, createdAt: Date.now() });
+    document.getElementById('new-project-modal').classList.add('hidden');
+    await switchProject(pid);
+    PROJECT_TEMPLATE = null;
+  }catch(e){
+    console.error('create project failed', e);
+    errEl.textContent = 'تعذر إنشاء المشروع. تحقق من قواعد الأمان ثم أعد المحاولة.';
+    errEl.style.display = 'block';
+  }
 });
 
 async function updateInvitePartnerVisibility(){
   const btn = document.getElementById('invite-partner-btn');
   document.getElementById('change-name-btn').classList.toggle('hidden', STATE.accountType !== 'pair');
-  if(MY_ROLE_ON_ACCOUNT !== 'owner' || STATE.accountType !== 'pair'){ btn.classList.add('hidden'); return; }
+  if(MY_ROLE_ON_ACCOUNT !== 'owner' || STATE.accountType !== 'pair' || !ACTIVE_PROJECT){ btn.classList.add('hidden'); return; }
   try{
-    const snap = await fbDb.ref('accounts/' + MY_UID + '/partnerUid').get();
-    btn.classList.toggle('hidden', snap.exists() && !!snap.val());
+    let has = !!ACTIVE_PROJECT.partnerUid;
+    if(!has){
+      const snap = await fbDb.ref('projects/' + ACTIVE_PROJECT.id + '/partnerUid').get();
+      has = snap.exists() && !!snap.val();
+      if(has) ACTIVE_PROJECT.partnerUid = snap.val();
+    }
+    btn.classList.toggle('hidden', has);
   }catch(e){ btn.classList.add('hidden'); }
 }
 document.getElementById('change-name-btn')?.addEventListener('click', async ()=>{
@@ -1421,8 +1600,8 @@ document.getElementById('change-name-btn')?.addEventListener('click', async ()=>
 document.getElementById('invite-partner-btn')?.addEventListener('click', async ()=>{
   try{
     const code = Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
-    await fbDb.ref('accounts/' + MY_UID + '/inviteCode').set(code);
-    await fbDb.ref('inviteCodes/' + code).set(MY_UID);
+    await fbDb.ref('projects/' + ACTIVE_PROJECT.id + '/inviteOpen').set(true);
+    await fbDb.ref('inviteCodes/' + code).set(ACTIVE_PROJECT.id);
     const link = location.origin + location.pathname + '?invite=' + code;
     document.getElementById('invite-link-box').value = link;
     document.getElementById('invite-modal').classList.remove('hidden');
@@ -1537,6 +1716,7 @@ async function setAccountStatus(uid, status){
 async function enterAdminView(uid){
   detachAccountsListListener();
   CURRENT_UID = uid; CURRENT_ROLE = 'super'; IS_IMPERSONATING = true;
+  PROJECT_OWNER_UID = uid; ACTIVE_PROJECT = null; MY_PROFILE = null; renderProjectBar();
   document.getElementById('super-dashboard').classList.add('hidden');
   document.getElementById('app-root').classList.remove('hidden');
   document.getElementById('logout-btn').style.display = 'none';
@@ -1572,10 +1752,10 @@ async function pushNotificationToAdmin(uid, message){
   }catch(e){ /* best-effort, never block the save itself */ }
 }
 async function showAdminNotifications(){
-  if(!CURRENT_UID) return;
+  if(!MY_UID) return;
   let notifs = {};
   try{
-    const snap = await fbDb.ref('accounts/' + CURRENT_UID + '/notifications').get();
+    const snap = await fbDb.ref('accounts/' + MY_UID + '/notifications').get();
     notifs = snap.exists() ? snap.val() : {};
   }catch(e){ return; }
   const unread = Object.entries(notifs).filter(([id,n])=> !n.read);
@@ -1588,7 +1768,7 @@ async function showAdminNotifications(){
     try{
       const updates = {};
       unread.forEach(([id])=> updates[id+'/read'] = true);
-      await fbDb.ref('accounts/' + CURRENT_UID + '/notifications').update(updates);
+      await fbDb.ref('accounts/' + MY_UID + '/notifications').update(updates);
     }catch(e){}
   };
 }
@@ -1597,8 +1777,8 @@ async function showAdminNotifications(){
 let ACCESS_REQUEST_REF = null;
 function attachAccessRequestListener(){
   detachAccessRequestListener();
-  if(!CURRENT_UID) return;
-  ACCESS_REQUEST_REF = fbDb.ref('accounts/' + CURRENT_UID + '/accessRequest');
+  if(!MY_UID) return;
+  ACCESS_REQUEST_REF = fbDb.ref('accounts/' + MY_UID + '/accessRequest');
   ACCESS_REQUEST_REF.on('value', (snap)=>{
     const ar = snap.exists() ? snap.val() : null;
     if(ar && ar.status === 'pending'){
@@ -1614,9 +1794,9 @@ function detachAccessRequestListener(){
 document.getElementById('ar-approve-btn')?.addEventListener('click', ()=> respondToAccessRequest('approved'));
 document.getElementById('ar-reject-btn')?.addEventListener('click', ()=> respondToAccessRequest('rejected'));
 async function respondToAccessRequest(status){
-  if(!CURRENT_UID) return;
+  if(!MY_UID) return;
   try{
-    await fbDb.ref('accounts/' + CURRENT_UID + '/accessRequest').set({status, respondedAt: Date.now()});
+    await fbDb.ref('accounts/' + MY_UID + '/accessRequest').set({status, respondedAt: Date.now()});
     document.getElementById('access-request-modal').classList.add('hidden');
   }catch(e){
     alert('صار خطأ، حاول مرة ثانية.');
@@ -1650,8 +1830,8 @@ async function storageGet(){
       return raw;
     }
     // migrate from the old pre-approval-workflow location, if present
-    const legacySnap = await fbDb.ref('accounts/' + CURRENT_UID + '/data').get();
-    if(legacySnap.exists()){
+    const legacySnap = CURRENT_UID.charAt(0) === '-' ? null : await fbDb.ref('accounts/' + CURRENT_UID + '/data').get();
+    if(legacySnap && legacySnap.exists()){
       const val = legacySnap.val();
       await fbDb.ref('adminData/' + CURRENT_UID).set(val);
       const raw = JSON.stringify(val);
@@ -1677,6 +1857,13 @@ async function storageSet(value){  if(!CURRENT_UID) return false;
   try{
     SUPPRESS_LIVE_RENDER = true;
     await fbDb.ref('adminData/' + CURRENT_UID).set(JSON.parse(value));
+    if(ACTIVE_PROJECT && !IS_IMPERSONATING){
+      const t = (JSON.parse(value).siteTitle || '').trim();
+      if(t && t !== ACTIVE_PROJECT.name){
+        ACTIVE_PROJECT.name = t;
+        fbDb.ref('projects/' + ACTIVE_PROJECT.id + '/name').set(t).then(renderProjectBar).catch(()=>{});
+      }
+    }
     if(IS_IMPERSONATING) await pushNotificationToAdmin(CURRENT_UID, superEditNoticeText());
     return true;
   }catch(e){
@@ -1716,7 +1903,12 @@ async function loadState(){
   }
   STATE = emptyStateTemplate();
   // First time this account ever loads: use the program name they chose at registration, if any.
-  if(CURRENT_UID){
+  if(PROJECT_TEMPLATE){
+    STATE.siteTitle = PROJECT_TEMPLATE.siteTitle;
+    STATE.accountType = 'pair';
+    STATE.ownerName = PROJECT_TEMPLATE.ownerName;
+    STATE.partnerName = PROJECT_TEMPLATE.partnerName;
+  } else if(CURRENT_UID){
     try{
       const snap = await fbDb.ref('accounts/' + CURRENT_UID).get();
       if(snap.exists()){
@@ -1893,7 +2085,7 @@ function applyAccountTypeUI(){
     const price = parseFloat(it.price) || 0;
     // Classify by the account's own uid (CURRENT_UID never goes stale), not the cached PARTNER_UID,
     // which is fetched once at login and can be wrong if the partner joined after this session started.
-    if(it.createdBy && it.createdBy !== CURRENT_UID) partnerTotal += price;
+    if(it.createdBy && it.createdBy !== PROJECT_OWNER_UID) partnerTotal += price;
     else ownerTotal += price; // owner's own items, or legacy items with no createdBy
   });
   document.getElementById('pair-daily-total-value').textContent = fmt(ownerTotal + partnerTotal);
@@ -2059,7 +2251,7 @@ function tableHeaderRow(){
 function payerName(it){
   if(STATE.accountType !== 'pair') return '';
   if(!it.createdBy) return STATE.ownerName || '-'; // legacy items with no stamp: assume owner
-  return it.createdBy === CURRENT_UID ? (STATE.ownerName || '-') : (STATE.partnerName || '-');
+  return it.createdBy === PROJECT_OWNER_UID ? (STATE.ownerName || '-') : (STATE.partnerName || '-');
 }
 function tableRowHtml(it, ctx){
   // ctx: {kind:'general'} or {kind:'day', dayIndex}
@@ -2437,7 +2629,7 @@ function renderPrintReport(){
     let ownerTotal = 0, partnerTotal = 0;
     allItemsFlat().forEach(it=>{
       const price = parseFloat(it.price) || 0;
-      if(it.createdBy && it.createdBy !== CURRENT_UID) partnerTotal += price;
+      if(it.createdBy && it.createdBy !== PROJECT_OWNER_UID) partnerTotal += price;
       else ownerTotal += price;
     });
     const net = ownerTotal - partnerTotal;
