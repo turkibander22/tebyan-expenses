@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>برنامج المصاريف</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Noto+Kufi+Arabic:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -719,6 +719,119 @@
   .grp-dep-note{flex:1; color:var(--muted-2); white-space:normal; font-size:.78rem;}
 #item-group-hint{font-size:.8rem; color:var(--muted); margin-top:6px;}
 #item-group-hint.over{color:#ff8f8b;}
+
+  /* ================= Professional polish (overrides) ================= */
+  :root{
+    --navy-dark:#0d1828; --navy:#15243a; --navy-light:#223756;
+    --bg-gradient-start:#14253d;
+    --muted:#a9b6c9; --muted-2:#7f8da3;
+    --card-radius:14px;
+    --shadow-card:0 1px 2px rgba(0,0,0,.28);
+    --hairline:rgba(255,255,255,.09);
+  }
+  body.light-theme{
+    --navy-dark:#f2f5f9; --navy:#ffffff; --navy-light:#dde5ef;
+    --bg-gradient-start:#e9eff6;
+    --muted:#566377; --muted-2:#7a8698;
+    --shadow-card:0 1px 2px rgba(20,35,58,.08);
+    --hairline:rgba(20,35,58,.11);
+  }
+  body{
+    font-family:'IBM Plex Sans Arabic','Noto Kufi Arabic',sans-serif;
+    font-variant-numeric:tabular-nums;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.6;
+    background:var(--navy-dark);
+    background-image:linear-gradient(180deg,var(--bg-gradient-start) 0,var(--navy-dark) 360px);
+  }
+  @keyframes fade{from{opacity:0;} to{opacity:1;}}
+  :focus-visible{outline:2px solid var(--teal-light); outline-offset:2px;}
+  @media (prefers-reduced-motion:reduce){ *{animation:none !important; transition:none !important;} }
+
+  header{padding:24px 20px 6px;}
+  header::before, header::after{display:none;}
+  header h1{font-size:1.45rem; font-weight:700;}
+  header p{font-size:.88rem; margin-top:4px;}
+
+  nav.tabs{
+    gap:2px; justify-content:flex-start; flex-wrap:nowrap; overflow-x:auto;
+    max-width:1000px; margin:14px auto 22px; padding:0 16px;
+    border-bottom:1px solid var(--hairline); scrollbar-width:none;
+  }
+  nav.tabs::-webkit-scrollbar{display:none;}
+  nav.tabs button{
+    background:transparent; border:0; border-bottom:2px solid transparent; border-radius:0;
+    padding:12px 14px; margin-bottom:-1px; color:var(--muted); font-weight:500; font-size:.92rem; white-space:nowrap; box-shadow:none;
+  }
+  nav.tabs button:hover{background:transparent; border-color:transparent; border-bottom-color:var(--hairline); color:var(--white);}
+  nav.tabs button.active{background:transparent; box-shadow:none; color:var(--white); border-bottom-color:var(--teal-light); font-weight:600;}
+  nav.tabs button.more-btn{margin-inline-start:auto;}
+
+  .cards-row{gap:12px; margin-bottom:22px;}
+  .stat-card{padding:16px; border:1px solid var(--hairline); box-shadow:var(--shadow-card);}
+  .stat-card:hover{transform:none;}
+  .stat-card .label{font-size:.78rem; font-weight:500; margin-bottom:6px;}
+  .stat-card .value{font-size:1.35rem; font-weight:700; letter-spacing:-.01em;}
+
+  /* the balance strip: total / spent / remaining read as one statement */
+  #global-summary-row{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:0; position:relative; overflow:hidden;
+    background:var(--navy); border:1px solid var(--hairline); border-radius:16px; box-shadow:var(--shadow-card);
+    margin-bottom:22px; padding-bottom:3px;
+  }
+  #global-summary-row .stat-card{background:transparent; border:0; border-radius:0; box-shadow:none; text-align:right; padding:16px 20px;}
+  #global-summary-row .stat-card + .stat-card{border-inline-start:1px solid var(--hairline);}
+  #global-summary-row::before{content:""; position:absolute; inset-inline:0; bottom:0; height:3px; background:var(--hairline);}
+  #global-summary-row::after{content:""; position:absolute; inset-inline-start:0; bottom:0; height:3px; width:var(--spent-pct,0%); background:var(--teal-light); transition:width .4s ease;}
+  #global-summary-row.warn::after{background:var(--amber);}
+  #global-summary-row.over::after{background:var(--red);}
+
+  .section-title{
+    background:transparent; border:0; border-bottom:1px solid var(--hairline); border-radius:0;
+    padding:8px 2px; margin:26px 0 12px; font-size:1rem; font-weight:600;
+  }
+  .day-block{border:1px solid var(--hairline); box-shadow:var(--shadow-card);}
+  .day-head{background:transparent; padding:14px 18px;}
+  .day-head .dtitle{font-weight:600;}
+  .day-body{border-top:1px solid var(--hairline); padding:6px 18px 16px;}
+
+  table.exp-table th, table.students-table th{font-weight:500; font-size:.74rem; color:var(--muted-2); border-bottom:1px solid var(--hairline);}
+  table.exp-table td, table.students-table td{border-bottom:1px solid var(--hairline);}
+  table.exp-table tbody tr:hover td, table.students-table tbody tr:hover td{background:rgba(var(--tint-rgb),.035);}
+  table.exp-table tr:last-child td{border-bottom:0;}
+
+  .add-row-btn{background:var(--teal); color:#fff; border-radius:10px; font-weight:600; padding:8px 16px; box-shadow:none;}
+  .add-row-btn:hover{background:var(--teal-light);}
+  .icon-btn{opacity:.75; border-radius:8px;}
+  .icon-btn:hover{opacity:1;}
+
+  .form-modal-box, .login-box{border:1px solid var(--hairline); border-radius:18px; box-shadow:0 24px 60px rgba(0,0,0,.35);}
+  .form-modal-box input, .form-modal-box select, .login-box input, .login-box select{border-radius:10px;}
+  .form-modal-box input:focus, .form-modal-box select:focus, .login-box input:focus{outline:2px solid var(--teal-light); outline-offset:0;}
+  .btn-save, .btn-cancel{border-radius:10px; padding:9px 18px;}
+
+  .grp-card, .pd-card{border:1px solid var(--hairline); box-shadow:var(--shadow-card);}
+  .pd-card:hover{border-color:var(--teal-light);}
+  #projects-dashboard{background:var(--navy-dark); background-image:linear-gradient(180deg,var(--bg-gradient-start) 0,var(--navy-dark) 360px);}
+
+  @media (max-width:640px){
+    #global-summary-row .stat-card{padding:12px 10px;}
+    #global-summary-row .stat-card .label{font-size:.7rem;}
+    #global-summary-row .stat-card .value{font-size:1rem;}
+    nav.tabs{padding:0 8px;} nav.tabs button{padding:11px 10px; font-size:.85rem;}
+  }
+
+  table.exp-table td.notes-cell{color:var(--muted);}
+  body.light-theme .stat-card.budget .value{color:#2f56b8;}
+  body.light-theme .stat-card.consumed .value{color:#b06d08;}
+  body.light-theme .stat-card.remaining .value{color:#23813f;}
+  .tab-btn.logo-btn{background:transparent; border:1px dashed var(--hairline); color:var(--muted); border-radius:10px;}
+  .tab-btn.logo-btn:hover{border-color:var(--teal-light); color:var(--white); background:transparent;}
+  @media (max-width:640px){
+    nav.tabs{justify-content:space-between; gap:0; padding:0 4px;}
+    nav.tabs button{padding:11px 6px; font-size:.78rem; flex:0 1 auto;}
+    nav.tabs button.more-btn{margin-inline-start:0;}
+  }
 </style>
 </head>
 <body>
@@ -912,7 +1025,7 @@
 <nav class="tabs">
   <button class="tab-btn active" data-page="home" id="tab-home">الرئيسية</button>
   <button class="tab-btn" data-page="daily">المصاريف اليومية</button>
-  <button class="tab-btn" data-page="students" id="tab-students">استرداد المبالغ</button>
+  <button class="tab-btn hidden" data-page="students" id="tab-students">استرداد المبالغ</button>
   <button class="tab-btn" data-page="subs" id="tab-subs">المبلغ الكلي</button>
   <button class="tab-btn" data-page="stats">الإحصائيات</button>
   <button class="tab-btn more-btn" id="more-menu-btn">⚙️ المزيد</button>
@@ -946,9 +1059,9 @@
   <section class="page active" id="page-home">
     <div class="section-title">أهم المعلومات</div>
     <div class="cards-row" id="group-home-cards">
-      <div class="stat-card budget" data-goto="students" style="cursor:pointer;"><div class="label">عدد استرداد المبالغ</div><div class="value" id="home-refund-count">-</div></div>
-      <div class="stat-card consumed" data-goto="students" style="cursor:pointer;"><div class="label">إجمالي المبالغ المطلوب استردادها</div><div class="value" id="home-refund-total">-</div></div>
-      <div class="stat-card remaining" data-goto="subs" style="cursor:pointer;"><div class="label">إجمالي المبلغ المودَع</div><div class="value" id="home-subs-status">-</div></div>
+      <div class="stat-card budget" data-goto="subs" style="cursor:pointer;"><div class="label">إجمالي المبلغ المودَع</div><div class="value" id="home-subs-status">-</div></div>
+      <div class="stat-card consumed" data-goto="daily" style="cursor:pointer;"><div class="label">عدد البنود المسجّلة</div><div class="value" id="home-items-count">-</div></div>
+      <div class="stat-card remaining" data-goto="subs" style="cursor:pointer;"><div class="label">عدد التوزيعات</div><div class="value" id="home-groups-count">-</div></div>
     </div>
     <div class="cards-row hidden" id="pair-home-cards">
       <div class="stat-card consumed"><div class="label">إجمالي الاستهلاك</div><div class="value" id="pair-total-value">-</div></div>
@@ -1107,9 +1220,9 @@
         <div><button type="button" class="btn-cancel" id="item-image-remove" style="margin-top:6px; padding:5px 14px; font-size:.78rem;">إزالة الصورة</button></div>
       </div>
     </div>
-    <div class="link-student-box" id="link-student-box">
-      <label><input type="checkbox" id="item-link-student-chk"> هل هذه الفاتورة تخص أحد المشتركين؟</label>
-      <select id="item-link-student-select" style="display:none;"></select>
+    <div id="link-student-box" style="display:none !important;">
+      <input type="checkbox" id="item-link-student-chk">
+      <select id="item-link-student-select"></select>
     </div>
     <div class="form-actions">
       <button class="btn-save" id="item-form-save">حفظ</button>
@@ -2354,7 +2467,7 @@ function render(){
 
 function applyAccountTypeUI(){
   const isPair = STATE.accountType === 'pair';
-  document.getElementById('tab-students').classList.toggle('hidden', isPair);
+  document.getElementById('tab-students').classList.add('hidden'); // the refunds list was retired
   document.getElementById('tab-subs').classList.toggle('hidden', isPair);
   document.getElementById('tab-home').classList.toggle('hidden', isPair);
   document.getElementById('group-home-cards').classList.toggle('hidden', isPair);
@@ -2645,15 +2758,17 @@ function renderGlobalSummary(){
   document.getElementById('g-budget').textContent = fmt(budget);
   document.getElementById('g-consumed').textContent = fmt(consumed);
   document.getElementById('g-remaining').textContent = fmt(budget-consumed);
+  const row = document.getElementById('global-summary-row');
+  const pct = budget > 0 ? Math.min(100, Math.round(consumed / budget * 100)) : (consumed > 0 ? 100 : 0);
+  row.style.setProperty('--spent-pct', pct + '%');
+  row.classList.toggle('over', consumed > budget);
+  row.classList.toggle('warn', consumed <= budget && pct >= 85);
 }
 
 function renderHome(){
-  const withDebt = STATE.students.filter(hasDebt);
-  const refundTotal = withDebt.reduce((sum,s)=> sum + (parseFloat(s.amount)||0), 0);
-  document.getElementById('home-refund-count').textContent = withDebt.length;
-  document.getElementById('home-refund-total').textContent = fmt(refundTotal);
-
   document.getElementById('home-subs-status').textContent = fmt(computeBudget());
+  document.getElementById('home-items-count').textContent = allItemsFlat().length;
+  document.getElementById('home-groups-count').textContent = (STATE.allocGroups || []).length;
 }
 
 function invoiceImgSrc(num){
@@ -3097,24 +3212,6 @@ function renderPrintReport(){
   html += excelStyleExpenseTable();
 
   if(!isPairPdf){
-  html += `<h2 class="pr-page-break">قائمة استرداد المبالغ (اللي عليهم مبالغ فقط)</h2>`;
-  html += `<table><tr>
-      <th class="pr-students-notes pr-right">الملاحظات / رقم الفاتورة</th>
-      <th class="pr-students-amount">المبلغ</th>
-      <th class="pr-students-name pr-right">الاسم</th>
-      <th class="pr-students-num">م</th>
-    </tr>`;
-  const debtStudents = STATE.students.filter(hasDebt);
-  debtStudents.forEach(s=>{
-    html += `<tr>
-      <td class="pr-right">${escapeHtml(s.notes||'-')}</td>
-      <td class="pr-amount-filled">${fmt(s.amount)}</td>
-      <td class="pr-right">${escapeHtml(s.name)}</td>
-      <td>${s.m ?? ''}</td>
-    </tr>`;
-  });
-  html += `</table>`;
-
   html += `<h2 class="pr-page-break">الإيداعات</h2>`;
   html += `<div class="pr-summary"><span class="pr-sum-budget">المبلغ الكلي: ${fmt(budget)}</span></div>`;
   html += `<table><tr>
