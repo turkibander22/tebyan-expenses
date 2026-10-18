@@ -467,6 +467,15 @@
   body.is-public #add-student-btn,
   body.is-public .students-actions-col{ display:none !important; }
 
+  body.is-member #add-student-btn, body.is-member #add-sub-btn, body.is-member #import-excel-btn,
+  body.is-member #add-deposit-btn, body.is-member #add-group-btn, body.is-member #add-day-btn,
+  body.is-member #clear-all-btn, body.is-member #import-backup-btn,
+  body.is-member .logo-btn, body.is-member .header-edit-btn,
+  body.is-member [data-edit-deposit], body.is-member [data-del-deposit],
+  body.is-member [data-edit-group], body.is-member [data-del-group],
+  body.is-member .students-actions-col, body.is-member [data-toggle-sub-status],
+  body.is-member .link-student-box:has(#item-link-student-chk){ display:none !important; }
+
   /* item form modal */
   .form-modal-box{
     background:var(--navy); border-radius:16px; padding:20px; max-width:420px; width:100%;
@@ -703,6 +712,8 @@
 .grp-bar > div{height:100%; background:var(--teal-light); border-radius:6px;}
 .grp-bar.over > div{background:var(--red);}
 .grp-card .rem-ok{color:var(--green);} .grp-card .rem-over{color:#ff8f8b;}
+  .alloc-status{padding:10px 14px; border-radius:12px; font-weight:700; font-size:.9rem; margin:6px 0 10px; text-align:center; background:rgba(var(--tint-rgb),.06);}
+.alloc-status.ok{color:var(--teal-light);} .alloc-status.warn{color:var(--amber);} .alloc-status.bad{color:#ff8f8b;}
 #item-group-hint{font-size:.8rem; color:var(--muted); margin-top:6px;}
 #item-group-hint.over{color:#ff8f8b;}
 </style>
@@ -813,9 +824,10 @@
 <div id="invite-modal" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:3000; display:flex; align-items:center; justify-content:center; padding:20px;">
   <div class="login-box">
     <h2>🤝 دعوة الطرف الثاني</h2>
-    <p>انسخ الرابط وأرسله للطرف الثاني (واتساب مثلًا) لكي يسجّل حسابه الخاص وينضم إلى نفس البيانات</p>
+    <p id="invite-modal-desc">انسخ الرابط وأرسله للطرف الثاني (واتساب مثلًا) لكي يسجّل حسابه الخاص وينضم إلى نفس البيانات</p>
     <input type="text" id="invite-link-box" readonly style="text-align:center; direction:ltr;">
     <button id="invite-copy-btn">نسخ الرابط</button>
+    <button class="link-btn hidden" id="invite-stop-btn" type="button">⛔ إيقاف الدعوة</button>
     <button class="link-btn" id="invite-close-btn" type="button">إغلاق</button>
   </div>
 </div>
@@ -989,12 +1001,13 @@
         <tbody id="deposits-tbody"></tbody>
       </table>
       <div class="section-title" style="margin-top:28px;">
-        <span>توزيع الإجمالي — المجموعات وحدودها العليا</span>
+        <span>توزيع الإجمالي</span>
         <button class="add-row-btn" id="add-group-btn" style="margin:0;">+ إضافة مجموعة</button>
       </div>
       <div class="pr-sub" style="text-align:right; color:var(--muted-2); font-size:.78rem; margin:-6px 0 6px;">
-        حدّد لكل مجموعة اسمها وحدّها الأعلى، وعند إضافة أي بند اختر مجموعته ليُخصم مبلغه من حدّها.
+        أضف التوزيعات بالاسم والمبلغ، ويجب أن يساوي مجموعها المبلغ الكلي. وعند إضافة أي بند اختر مجموعته ليُخصم مبلغه من مبلغها.
       </div>
+      <div id="alloc-status" class="alloc-status"></div>
       <div id="groups-list" class="grp-grid"></div>
     </div>
     <div id="subs-legacy" class="hidden">
@@ -1141,7 +1154,7 @@
       <input type="text" id="group-name-input" placeholder="مثال: الأكل">
     </div>
     <div class="form-field">
-      <label>الحد الأعلى للمجموعة</label>
+      <label>المبلغ المخصص للمجموعة</label>
       <input type="number" step="0.01" id="group-cap-input" placeholder="مثال: 1000">
     </div>
     <div class="form-actions">
@@ -1223,6 +1236,7 @@ let MY_ROLE_ON_ACCOUNT = null; // 'owner' | 'partner' — who is actually logged
 let PROJECT_OWNER_UID = null; // uid of the person who created the active pair project
 let ACTIVE_PROJECT = null;    // {id, ownerUid, name, partnerUid}
 let MY_PROJECTS = [];
+let SINGLE_DIRECT = false;    // a lone group account opens straight into the app (no dashboard, no project bar)
 let MY_PROFILE = null;
 let PROJECT_TEMPLATE = null;  // seed values for a brand-new project's first state
 let PARTNER_UID = null;        // the other party's uid, for pair accounts (whichever role I'm not)
@@ -1453,8 +1467,11 @@ document.getElementById('join-existing-btn')?.addEventListener('click', ()=> sho
 document.getElementById('join-submit')?.addEventListener('click', doJoinAsPartner);
 // Adds `uid` as the second member of project `pid` (the invite must still be open).
 async function joinProject(pid, uid, code){
+  let type = 'pair';
+  try{ const t = await fbDb.ref('projects/' + pid + '/type').get(); if(t.exists()) type = t.val(); }catch(e){}
   await fbDb.ref('projects/' + pid + '/members/' + uid).set(true);
   await fbDb.ref('accounts/' + uid + '/projects/' + pid).set(true);
+  if(type === 'group') return; // a group account keeps its invite open: several people may join
   await fbDb.ref('projects/' + pid + '/partnerUid').set(uid);
   await fbDb.ref('projects/' + pid + '/inviteOpen').remove();
   if(code) await fbDb.ref('inviteCodes/' + code).remove();
@@ -1603,7 +1620,7 @@ async function enterApp(user, profile, openPid){
   MY_UID = user.uid;
   MY_PROFILE = profile;
   CURRENT_ROLE = 'admin'; IS_IMPERSONATING = false;
-  PROJECT_OWNER_UID = null; ACTIVE_PROJECT = null; MY_PROJECTS = [];
+  PROJECT_OWNER_UID = null; ACTIVE_PROJECT = null; MY_PROJECTS = []; SINGLE_DIRECT = false;
   fbDb.ref('accounts/' + MY_UID + '/lastLogin').set(Date.now()).catch(()=>{});
   hideGate();
   document.getElementById('super-dashboard').classList.add('hidden');
@@ -1627,7 +1644,9 @@ async function enterApp(user, profile, openPid){
     return;
   }
   // a single group account behaves exactly as before: straight into the app
-  CURRENT_UID = user.uid; MY_ROLE_ON_ACCOUNT = 'owner'; PARTNER_UID = null; PROJECT_OWNER_UID = user.uid;
+  SINGLE_DIRECT = true;
+  if(MY_PROJECTS.length) bindProject(MY_PROJECTS[0]);
+  else { CURRENT_UID = user.uid; MY_ROLE_ON_ACCOUNT = 'owner'; PARTNER_UID = null; PROJECT_OWNER_UID = user.uid; }
   document.getElementById('app-root').classList.remove('hidden');
   document.getElementById('logout-btn').style.display = '';
   await loadState();
@@ -1643,10 +1662,11 @@ async function enterApp(user, profile, openPid){
 // ---------- Multiple projects (pair accounts) ----------
 function renderProjectBar(){
   const bar = document.getElementById('project-bar');
-  const show = !!MY_PROFILE && !IS_IMPERSONATING && !!ACTIVE_PROJECT;
+  const show = !!MY_PROFILE && !IS_IMPERSONATING && !!ACTIVE_PROJECT && !SINGLE_DIRECT;
   bar.classList.toggle('hidden', !show);
   document.getElementById('add-account-btn')?.classList.toggle('hidden', IS_IMPERSONATING || !MY_PROFILE);
   if(show) document.getElementById('project-bar-name').textContent = ACTIVE_PROJECT.name;
+  document.body.classList.toggle('is-member', !!ACTIVE_PROJECT && MY_ROLE_ON_ACCOUNT === 'partner' && !!STATE && STATE.accountType !== 'pair' && !IS_IMPERSONATING);
 }
 function pairSummary(data, ownerUid){
   const st = data || {};
@@ -1695,6 +1715,8 @@ async function renderDashboard(){
   }));
 }
 async function showDashboard(){
+  SINGLE_DIRECT = false;
+  document.body.classList.remove('is-member');
   detachLiveDataListener();
   ACTIVE_PROJECT = null; CURRENT_UID = null;
   document.getElementById('app-root').classList.add('hidden');
@@ -1706,6 +1728,7 @@ async function showDashboard(){
 async function openProject(pid){
   const p = MY_PROJECTS.find(x=> x.id === pid);
   if(!p) return;
+  SINGLE_DIRECT = false;
   detachLiveDataListener();
   bindProject(p);
   try{ localStorage.setItem('active-project-' + MY_UID, pid); }catch(e){}
@@ -1782,7 +1805,15 @@ document.getElementById('np-submit')?.addEventListener('click', async ()=>{
 async function updateInvitePartnerVisibility(){
   const btn = document.getElementById('invite-partner-btn');
   document.getElementById('change-name-btn').classList.toggle('hidden', STATE.accountType !== 'pair');
-  if(MY_ROLE_ON_ACCOUNT !== 'owner' || STATE.accountType !== 'pair' || !ACTIVE_PROJECT){ btn.classList.add('hidden'); return; }
+  if(MY_ROLE_ON_ACCOUNT !== 'owner' || !ACTIVE_PROJECT || IS_IMPERSONATING){ btn.classList.add('hidden'); return; }
+  const lbl = btn.querySelector('.mm-label');
+  if(STATE.accountType !== 'pair'){
+    // group account: the owner can invite several people to add and edit their own items
+    if(lbl) lbl.textContent = 'دعوة أعضاء للإضافة';
+    btn.classList.remove('hidden');
+    return;
+  }
+  if(lbl) lbl.textContent = 'دعوة الطرف الثاني';
   try{
     let has = !!ACTIVE_PROJECT.partnerUid;
     if(!has){
@@ -1807,8 +1838,24 @@ document.getElementById('change-name-btn')?.addEventListener('click', async ()=>
 document.getElementById('invite-partner-btn')?.addEventListener('click', async ()=>{
   try{
     const code = Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+    const isGroup = STATE.accountType !== 'pair';
+    if(isGroup && ACTIVE_PROJECT.virtual){
+      // an existing group account gets its project record the first time it is shared
+      const ex = await fbDb.ref('projects/' + ACTIVE_PROJECT.id).get();
+      if(!ex.exists()){
+        const mem = {}; mem[MY_UID] = true;
+        await fbDb.ref('projects/' + ACTIVE_PROJECT.id).set({ ownerUid: MY_UID, type: 'group', name: ACTIVE_PROJECT.name, createdAt: Date.now(), members: mem });
+      }
+    }
     await fbDb.ref('projects/' + ACTIVE_PROJECT.id + '/inviteOpen').set(true);
     await fbDb.ref('inviteCodes/' + code).set(ACTIVE_PROJECT.id);
+    if(isGroup){
+      if(!STATE.multiUser || !STATE.groupOwnerName){ STATE.multiUser = true; STATE.groupOwnerName = myDisplayName(); render(); saveState(); }
+    }
+    document.getElementById('invite-stop-btn').classList.toggle('hidden', !isGroup);
+    document.getElementById('invite-modal-desc').textContent = isGroup
+      ? 'انسخ الرابط وأرسله لمن تريد أن يضيف بنودًا. يستطيع كل عضو إضافة بنوده وتعديلها وحذفها فقط، ويبقى الرابط صالحًا لعدة أشخاص حتى توقفه.'
+      : 'انسخ الرابط وأرسله للطرف الثاني (واتساب مثلًا) لكي يسجّل حسابه الخاص وينضم إلى نفس البيانات';
     const link = location.origin + location.pathname + '?invite=' + code;
     document.getElementById('invite-link-box').value = link;
     document.getElementById('invite-modal').classList.remove('hidden');
@@ -1819,6 +1866,14 @@ document.getElementById('invite-copy-btn')?.addEventListener('click', ()=>{
   box.select();
   try{ document.execCommand('copy'); }catch(e){}
   navigator.clipboard?.writeText(box.value).catch(()=>{});
+});
+document.getElementById('invite-stop-btn')?.addEventListener('click', async ()=>{
+  if(!confirm('عند إيقاف الدعوة لن يستطيع أحد الانضمام بالرابط الحالي. هل تريد المتابعة؟')) return;
+  try{
+    await fbDb.ref('projects/' + ACTIVE_PROJECT.id + '/inviteOpen').remove();
+    document.getElementById('invite-modal').classList.add('hidden');
+    alert('تم إيقاف الدعوة.');
+  }catch(e){ alert('تعذر إيقاف الدعوة.'); }
 });
 document.getElementById('invite-close-btn')?.addEventListener('click', ()=>{
   document.getElementById('invite-modal').classList.add('hidden');
@@ -2393,7 +2448,7 @@ function renderSubscriptions(){
   tbody.innerHTML = html;
 }
 
-// ---------- المبلغ الكلي: الإيداعات + توزيع الإجمالي (الحدود العليا للمجموعات) ----------
+// ---------- المبلغ الكلي: الإيداعات + توزيع الإجمالي (مبلغ لكل مجموعة) ----------
 function computeGroupSpent(){
   ensureCategoryGroups();
   const spent = {};
@@ -2421,6 +2476,13 @@ function renderBudgetPage(){
         <button class="icon-btn" data-del-deposit="${x.i}">🗑️</button>
       </div></td></tr>`).join('') : `<tr><td colspan="5" class="empty-note">لا توجد إيداعات بعد — أضف أول إيداع</td></tr>`;
 
+  const allocated = Object.keys(STATE.groupLimits || {}).reduce((a,g)=> a + groupCap(g), 0);
+  const totalAmt = computeBudget();
+  const diff = totalAmt - allocated;
+  const st = document.getElementById('alloc-status');
+  if(Math.abs(diff) < 0.01 && allocated > 0){ st.className = 'alloc-status ok'; st.textContent = 'مجموع التوزيعات ' + fmt(allocated) + ' — يساوي المبلغ الكلي ✅'; }
+  else if(diff > 0){ st.className = 'alloc-status warn'; st.textContent = 'مجموع التوزيعات ' + fmt(allocated) + ' من ' + fmt(totalAmt) + ' — غير الموزَّع: ' + fmt(diff); }
+  else { st.className = 'alloc-status bad'; st.textContent = 'مجموع التوزيعات ' + fmt(allocated) + ' يتجاوز المبلغ الكلي ' + fmt(totalAmt) + ' بمقدار ' + fmt(-diff); }
   const spent = computeGroupSpent();
   const names = allGroupNames().filter(g=> g !== 'أخرى' || (spent[g] || 0) > 0);
   document.getElementById('groups-list').innerHTML = names.length ? names.map(g=>{
@@ -2434,7 +2496,7 @@ function renderBudgetPage(){
       <div class="grp-card-head"><span class="grp-card-name">${escapeHtml(g)}</span>${actions}</div>
       ${cap ? `<div class="grp-bar ${rem < 0 ? 'over' : ''}"><div style="width:${pct}%"></div></div>` : ''}
       <div class="grp-card-nums">
-        <span>الحد الأعلى<b>${cap ? fmt(cap) : 'غير محدد'}</b></span>
+        <span>المخصص<b>${cap ? fmt(cap) : 'غير محدد'}</b></span>
         <span>المصروف<b>${fmt(sp)}</b></span>
         <span>المتبقي<b class="${cap ? (rem < 0 ? 'rem-over' : 'rem-ok') : ''}">${cap ? fmt(rem) : '—'}</b></span>
       </div></div>`;
@@ -2590,8 +2652,21 @@ function invoiceImgSrc(num){
   return STATE.images[String(num)] || null;
 }
 
+function sharedAcct(){ return STATE.accountType === 'pair' || !!STATE.multiUser; }
+function adderColOn(){ return STATE.accountType !== 'pair' && !!STATE.multiUser; }
+function myDisplayName(){ return (MY_PROFILE && (MY_PROFILE.ownerName || MY_PROFILE.username)) || 'مستخدم'; }
+function canEditItem(it){
+  if(IS_IMPERSONATING || !sharedAcct()) return true;
+  if(it && it.createdBy) return it.createdBy === MY_UID;
+  return MY_ROLE_ON_ACCOUNT !== 'partner'; // legacy unstamped items belong to the owner
+}
+function adderText(it){
+  const name = it.createdByName || STATE.groupOwnerName || '-';
+  const d = it.createdAt ? new Date(it.createdAt).toISOString().slice(0,10) : it.date;
+  return escapeHtml(name) + '<br><span style="font-size:.78em; opacity:.75;">' + formatItemDate(d) + '</span>';
+}
 function tableHeaderRow(){
-  const payerTh = STATE.accountType === 'pair' ? '<th>الدافع</th>' : '';
+  const payerTh = STATE.accountType === 'pair' ? '<th>الدافع</th>' : (adderColOn() ? '<th>أضافه</th>' : '');
   return readOnlyMode()
     ? `<tr><th>رقم</th><th>البند</th><th>السعر</th>${payerTh}<th>التاريخ</th><th>ملاحظات</th><th>الفاتورة</th></tr>`
     : `<tr><th>رقم</th><th>البند</th><th>السعر</th>${payerTh}<th>التاريخ</th><th>ملاحظات</th><th>الفاتورة</th><th></th></tr>`;
@@ -2607,17 +2682,17 @@ function tableRowHtml(it, ctx){
   let imgCell;
   if(img){
     imgCell = `<img class="thumb" src="${img}" data-view="${img}">`;
-  } else if(readOnlyMode()){
+  } else if(readOnlyMode() || !canEditItem(it)){
     imgCell = `<span style="color:var(--muted-2);">-</span>`;
   } else {
     imgCell = `<button class="no-img-btn" data-upload='${JSON.stringify(ctx)}-${it.__idx}'>+ صورة</button>`;
   }
-  const canEditThis = !(STATE.accountType === 'pair' && it.createdBy && MY_UID && it.createdBy !== MY_UID);
+  const canEditThis = canEditItem(it);
   const actionsCell = readOnlyMode() ? '' : (!canEditThis ? '<td></td>' : `<td><div class="row-actions">
       <button class="icon-btn" data-edit="${ctx.kind}|${ctx.dayIndex ?? ''}|${it.__idx}">✏️</button>
       <button class="icon-btn" data-del="${ctx.kind}|${ctx.dayIndex ?? ''}|${it.__idx}">🗑️</button>
     </div></td>`);
-  const payerCell = STATE.accountType === 'pair' ? `<td class="payer-cell">${escapeHtml(payerName(it))}</td>` : '';
+  const payerCell = STATE.accountType === 'pair' ? `<td class="payer-cell">${escapeHtml(payerName(it))}</td>` : (adderColOn() ? `<td class="payer-cell" style="white-space:normal; min-width:72px;">${adderText(it)}</td>` : '');
   const dateCell = `<td class="date-cell">${formatItemDate(it.date)}</td>`;
   return `<tr>
     <td>${it.num ?? ''}</td>
@@ -2651,7 +2726,7 @@ function renderGeneralTable(){
     rows += tableRowHtml(it, {kind:'general'});
   });
   if(STATE.general.length===0){
-    rows += `<tr><td colspan="${STATE.accountType==='pair'?8:7}" class="empty-note">لا توجد بنود عامة بعد</td></tr>`;
+    rows += `<tr><td colspan="${(STATE.accountType==='pair'||adderColOn())?8:7}" class="empty-note">لا توجد بنود عامة بعد</td></tr>`;
   }
   tbl.innerHTML = rows;
   const total = STATE.general.reduce((s,it)=> s + (parseFloat(it.price)||0), 0);
@@ -2674,7 +2749,7 @@ function renderDaily(){
     let rows = tableHeaderRow();
     d.items.forEach((it, idx)=>{ it.__idx = idx; rows += tableRowHtml(it, {kind:'day', dayIndex:i}); });
     if(d.items.length===0){
-      rows += `<tr><td colspan="${STATE.accountType==='pair'?8:7}" class="empty-note">لا توجد مصاريف مسجلة لهذا اليوم بعد</td></tr>`;
+      rows += `<tr><td colspan="${(STATE.accountType==='pair'||adderColOn())?8:7}" class="empty-note">لا توجد مصاريف مسجلة لهذا اليوم بعد</td></tr>`;
     }
     const dateEditBtn = readOnlyMode() ? '' : `<button class="icon-btn" data-edit-date="${i}" title="إضافة/تعديل تاريخ" style="padding:2px 5px; font-size:.75rem;">✏️</button>`;
     // لو ما فيه تاريخ محدد، نعرضه كـ"لقاء" برقمه بدون أي تخمين لتاريخ.
@@ -2892,7 +2967,7 @@ function excelStyleExpenseTable(){
       <th class="pr-h-num">رقم</th>
       <th class="pr-h-title">عنوان</th>
       <th class="pr-h-price">السعر</th>
-      ${isPair ? '<th class="pr-h-price">الدافع</th>' : ''}
+      ${isPair ? '<th class="pr-h-price">الدافع</th>' : (adderColOn() ? '<th class="pr-h-price">أضافه</th>' : '')}
       <th class="pr-h-price">التاريخ</th>
       <th class="pr-h-notes pr-right">ملاحظات</th>
       <th class="pr-h-day">اليوم</th>
@@ -2911,7 +2986,7 @@ function excelStyleExpenseTable(){
       html += `<td class="pr-num">${it.num ?? ''}</td>
         <td class="pr-title">${escapeHtml(it.title||'')}</td>
         <td class="pr-price">${fmt(it.price)}</td>
-        ${isPair ? `<td class="pr-price">${escapeHtml(payerName(it))}</td>` : ''}
+        ${isPair ? `<td class="pr-price">${escapeHtml(payerName(it))}</td>` : (adderColOn() ? `<td class="pr-price">${adderText(it)}</td>` : '')}
         <td class="pr-price">${formatItemDate(it.date)}</td>
         <td class="pr-notes">${escapeHtml(it.notes||'')}</td>`;
       if(idx===0){
@@ -2935,7 +3010,7 @@ function excelStyleExpenseTable(){
       html += `<td class="pr-num">${it.num ?? ''}</td>
         <td class="pr-title">${escapeHtml(it.title||'')}</td>
         <td class="pr-price">${fmt(it.price)}</td>
-        ${isPair ? `<td class="pr-price">${escapeHtml(payerName(it))}</td>` : ''}
+        ${isPair ? `<td class="pr-price">${escapeHtml(payerName(it))}</td>` : (adderColOn() ? `<td class="pr-price">${adderText(it)}</td>` : '')}
         <td class="pr-price">${formatItemDate(it.date)}</td>
         <td class="pr-notes">${escapeHtml(it.notes||'')}</td>`;
       if(idx===0){
@@ -3075,7 +3150,7 @@ function renderPrintReport(){
       const items = Object.entries(groupBreakdown[name]).sort((a,b)=>b[1]-a[1]);
       html += `<div class="pr-group-box">
         <div class="pr-group-header">
-          <span class="pr-group-name">${escapeHtml(name)}${groupCap(name) ? ` — الحد ${fmt(groupCap(name))} · المتبقي ${fmt(groupCap(name)-val)}` : ''}</span>
+          <span class="pr-group-name">${escapeHtml(name)}${groupCap(name) ? ` — المخصص ${fmt(groupCap(name))} · المتبقي ${fmt(groupCap(name)-val)}` : ''}</span>
           <span class="pr-group-pct">${pct}%</span>
           <span class="pr-group-total">${fmt(val)}</span>
         </div>
@@ -3130,7 +3205,7 @@ document.addEventListener('click', (e)=>{
   if(editBtn){
     const [kind, dayIndex, idx] = editBtn.dataset.edit.split('|');
     const it = kind==='general' ? STATE.general[idx] : STATE.days[dayIndex].items[idx];
-    if(STATE.accountType === 'pair' && it?.createdBy && MY_UID && it.createdBy !== MY_UID){ return; }
+    if(it && !canEditItem(it)){ return; }
     openItemForm({kind, dayIndex: dayIndex===''?undefined:parseInt(dayIndex)}, it, parseInt(idx));
   }
 
@@ -3138,7 +3213,7 @@ document.addEventListener('click', (e)=>{
   if(delBtn){
     const [kind, dayIndex, idx] = delBtn.dataset.del.split('|');
     const it = kind==='general' ? STATE.general[idx] : STATE.days[dayIndex].items[idx];
-    if(STATE.accountType === 'pair' && it?.createdBy && MY_UID && it.createdBy !== MY_UID){ return; }
+    if(it && !canEditItem(it)){ return; }
     const linkedNames = it ? findStudentsLinkedToInvoice(it.num).map(s=>s.name) : [];
     const warnMsg = linkedNames.length
       ? `هذا البند مرتبط بـ: ${linkedNames.join('، ')}. حذفه سيزيل الربط والمبلغ من عندهم تلقائياً. هل أنت متأكد؟`
@@ -3451,7 +3526,7 @@ function updateGroupHint(){
   hint.classList.remove('over');
   if(STATE.accountType === 'pair' || !g || g === '__other__' || !groupCap(g)){ hint.textContent = ''; return; }
   const rem = groupCap(g) - (computeGroupSpent()[g] || 0);
-  hint.textContent = 'الحد الأعلى ' + fmt(groupCap(g)) + ' — المتبقي حاليًا في هذه المجموعة: ' + fmt(rem);
+  hint.textContent = 'المخصص ' + fmt(groupCap(g)) + ' — المتبقي حاليًا في هذه المجموعة: ' + fmt(rem);
   if(rem < 0) hint.classList.add('over');
 }
 document.getElementById('item-group-select').addEventListener('change', function(){
@@ -3535,7 +3610,7 @@ document.getElementById('item-form-save').addEventListener('click', async ()=>{
     let already = computeGroupSpent()[chosenGroup] || 0;
     if(itemFormExisting && (STATE.categoryGroups[itemFormExisting.title] || 'أخرى') === chosenGroup) already -= (parseFloat(itemFormExisting.price) || 0);
     const over = already + price - groupCap(chosenGroup);
-    if(over > 0 && !confirm('هذا البند يتجاوز الحد الأعلى للمجموعة «' + chosenGroup + '» بمقدار ' + fmt(over) + '.\nهل تريد المتابعة؟')) return;
+    if(over > 0 && !confirm('هذا البند يتجاوز المبلغ المخصص للمجموعة «' + chosenGroup + '» بمقدار ' + fmt(over) + '.\nهل تريد المتابعة؟')) return;
   }
   STATE.categoryGroups[title] = chosenGroup;
 
@@ -3550,7 +3625,7 @@ document.getElementById('item-form-save').addEventListener('click', async ()=>{
     const allNums = allItemsFlat().map(it=>it.num||0);
     itemNum = allNums.length ? Math.max(...allNums)+1 : 1;
     const newItem = {num: itemNum, title, price, date: itemDate, notes};
-    if(STATE.accountType === 'pair' && MY_UID) newItem.createdBy = MY_UID;
+    if(sharedAcct() && MY_UID && !IS_IMPERSONATING){ newItem.createdBy = MY_UID; newItem.createdByName = myDisplayName(); newItem.createdAt = Date.now(); }
     if(itemFormCtx.kind==='general') STATE.general.push(newItem);
     else STATE.days[itemFormCtx.dayIndex].items.push(newItem);
   }
