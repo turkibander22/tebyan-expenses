@@ -668,11 +668,30 @@
     #print-report table.pr-group-items-table td.pr-num{ color:#375623; font-weight:700; width:110px; }
     #print-report table.pr-group-items-table td.pr-right{ text-align:right; color:#333; }
   }
-#project-bar{display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; padding:10px 14px; max-width:1100px; margin:0 auto;}
+#project-bar{display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap; padding:10px 14px; max-width:1100px; margin:0 auto;}
 #project-bar.hidden{display:none;}
-#project-bar label{font-weight:700; font-size:.9rem;}
-#project-bar select{flex:1 1 180px; max-width:340px; padding:9px 10px; border-radius:10px; border:1px solid #cfd8dc; font-family:inherit; font-size:.95rem; background:#fff; color:inherit;}
-#project-bar button{padding:9px 14px; border-radius:10px; border:0; background:var(--teal); color:#fff; font-family:inherit; font-weight:700; cursor:pointer;}
+#project-bar button{padding:9px 16px; border-radius:10px; border:0; background:var(--teal); color:#fff; font-family:inherit; font-weight:700; cursor:pointer;}
+#project-bar-name{font-weight:700; font-size:.95rem; opacity:.85;}
+#projects-dashboard{min-height:100vh; padding:28px 16px 40px; background:linear-gradient(180deg,var(--bg-gradient-start),var(--navy-dark)); color:var(--white);}
+#projects-dashboard.hidden{display:none !important;}
+.pd-wrap{max-width:900px; margin:0 auto;}
+.pd-top{text-align:center; margin-bottom:22px;}
+.pd-top h1{margin:0 0 6px; font-size:1.7rem;}
+.pd-top p{margin:0; color:var(--muted); font-size:.95rem;}
+#pd-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:14px;}
+.pd-card{background:var(--navy); border:1px solid rgba(var(--tint-rgb),.1); border-radius:var(--card-radius); padding:18px; box-shadow:var(--shadow-card); cursor:pointer; text-align:right; font-family:inherit; color:inherit; transition:transform .15s ease, border-color .15s ease; display:flex; flex-direction:column; gap:8px;}
+.pd-card:hover{transform:translateY(-3px); border-color:var(--teal-light);}
+.pd-card-title{font-size:1.1rem; font-weight:800;}
+.pd-card-with{font-size:.9rem; color:var(--muted);}
+.pd-card-balance{margin-top:4px; padding:10px 12px; border-radius:12px; background:rgba(var(--tint-rgb),.06); font-size:.9rem; font-weight:700;}
+.pd-card-balance.pos{color:var(--teal-light);}
+.pd-card-balance.neg{color:#ff8f8b;}
+.pd-card-balance.zero{color:var(--muted);}
+.pd-card-total{font-size:.8rem; color:var(--muted-2);}
+.pd-card-wait{font-size:.8rem; color:var(--amber);}
+.pd-actions{display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-top:24px;}
+.pd-actions button{padding:11px 18px; border-radius:12px; border:1px solid rgba(var(--tint-rgb),.15); background:var(--navy); color:inherit; font-family:inherit; font-weight:700; cursor:pointer;}
+.pd-actions #new-project-btn{background:var(--teal); border-color:transparent; color:#fff;}
 </style>
 </head>
 <body>
@@ -812,6 +831,21 @@
   </div>
 </div>
 
+<div id="projects-dashboard" class="hidden">
+  <div class="pd-wrap">
+    <div class="pd-top">
+      <h1>مشاريعي</h1>
+      <p>اختر المشروع لفتح صفحته</p>
+    </div>
+    <div id="pd-grid"></div>
+    <div class="pd-actions">
+      <button type="button" id="new-project-btn">➕ مشروع جديد</button>
+      <button type="button" id="pd-pass-btn">🔑 تغيير الرمز</button>
+      <button type="button" id="pd-logout-btn">🚪 تسجيل الخروج</button>
+    </div>
+  </div>
+</div>
+
 <div id="app-root" class="hidden">
 <div id="impersonation-banner" class="hidden">
   <span>👁️ تعرض الآن بيانات حساب: <strong id="impersonation-username"></strong> (وضع المشرف)</span>
@@ -839,9 +873,8 @@
 </header>
 
 <div id="project-bar" class="hidden">
-  <label for="project-select">المشروع:</label>
-  <select id="project-select"></select>
-  <button type="button" id="new-project-btn">➕ مشروع جديد</button>
+  <button type="button" id="back-to-projects">➡️ كل المشاريع</button>
+  <span id="project-bar-name"></span>
 </div>
 
 <nav class="tabs">
@@ -1349,23 +1382,23 @@ async function joinProject(pid, uid, code){
 }
 // A signed-in user who opened an invite link: offer to join that project with the existing account.
 async function handlePendingInvite(){
-  if(!INVITE_CODE || !INVITE_PID) return;
+  if(!INVITE_CODE || !INVITE_PID) return null;
   const code = INVITE_CODE, pid = INVITE_PID;
   INVITE_CODE = null; INVITE_PID = null;
   history.replaceState(null, '', location.pathname);
-  if(MY_PROJECTS.some(x=> x.id === pid)) return; // already a member
+  if(MY_PROJECTS.some(x=> x.id === pid)) return pid; // already a member
   try{
     const ps = await fbDb.ref('projects/' + pid).get();
     const proj = ps.exists() ? ps.val() : null;
-    if(!proj || !proj.inviteOpen || proj.ownerUid === MY_UID){ alert('رابط الدعوة غير صالح أو انتهت صلاحيته.'); return; }
-    if(!confirm('تمت دعوتك للانضمام إلى مشروع «' + (proj.name || 'مشروع') + '».\nهل تريد الانضمام إليه بحسابك الحالي؟')) return;
+    if(!proj || !proj.inviteOpen || proj.ownerUid === MY_UID){ alert('رابط الدعوة غير صالح أو انتهت صلاحيته.'); return null; }
+    if(!confirm('تمت دعوتك للانضمام إلى مشروع «' + (proj.name || 'مشروع') + '».\nهل تريد الانضمام إليه بحسابك الحالي؟')) return null;
     await joinProject(pid, MY_UID, code);
     await loadMyProjects();
-    ACTIVE_PROJECT = MY_PROJECTS.find(x=> x.id === pid) || ACTIVE_PROJECT;
-    try{ localStorage.setItem('active-project-' + MY_UID, pid); }catch(e){}
+    return pid;
   }catch(e){
     console.error('invite join failed', e);
     alert('تعذر الانضمام إلى المشروع. ربما سبقك طرف آخر أو انتهت الدعوة.');
+    return null;
   }
 }
 async function doJoinAsPartner(){
@@ -1388,11 +1421,12 @@ async function doJoinAsPartner(){
       accountType: 'pair', invitedTo: INVITE_PID, createdAt: Date.now()
     });
     await fbDb.ref('usernameEmailMap/' + u).set(emailInput);
+    const joinedPid = INVITE_PID;
     await joinProject(INVITE_PID, cred.user.uid, INVITE_CODE);
     INVITE_CODE = null; INVITE_PID = null;
     history.replaceState(null, '', location.pathname);
     IS_REGISTERING = false;
-    await enterApp(cred.user, { username: u, email: emailInput, status: 'approved', role: 'member', accountType: 'pair' });
+    await enterApp(cred.user, { username: u, email: emailInput, status: 'approved', role: 'member', accountType: 'pair' }, joinedPid);
   }catch(e){
     console.error('join failed', e);
     if(e.code === 'auth/email-already-in-use') errEl.textContent = 'هذا البريد مستخدم من قبل لحساب آخر';
@@ -1411,6 +1445,7 @@ fbAuth.onAuthStateChanged(async (user)=>{
   if(!user){
     CURRENT_UID = null; CURRENT_ROLE = null; IS_IMPERSONATING = false;
     document.getElementById('app-root').classList.add('hidden');
+    document.getElementById('projects-dashboard').classList.add('hidden');
     document.getElementById('super-dashboard').classList.add('hidden');
     document.getElementById('logout-btn').style.display = 'none';
     if(!INVITE_FLOW_ACTIVE) showGateView('login'); // an invite link is handling its own screen — don't fight it
@@ -1418,6 +1453,7 @@ fbAuth.onAuthStateChanged(async (user)=>{
   }
   if(user.uid === SUPER_ADMIN_UID){
     CURRENT_ROLE = 'super';
+    document.getElementById('projects-dashboard').classList.add('hidden');
     hideGate();
     document.getElementById('app-root').classList.add('hidden');
     await openSuperDashboard();
@@ -1478,33 +1514,34 @@ function bindProject(p){
   MY_ROLE_ON_ACCOUNT = (p.ownerUid === MY_UID) ? 'owner' : 'partner';
   PARTNER_UID = (p.ownerUid === MY_UID) ? p.partnerUid : p.ownerUid;
 }
-async function enterApp(user, profile){
+async function enterApp(user, profile, openPid){
   MY_UID = user.uid;
   MY_PROFILE = profile;
   CURRENT_ROLE = 'admin'; IS_IMPERSONATING = false;
   PROJECT_OWNER_UID = null; ACTIVE_PROJECT = null; MY_PROJECTS = [];
+  fbDb.ref('accounts/' + MY_UID + '/lastLogin').set(Date.now()).catch(()=>{});
+  hideGate();
+  document.getElementById('super-dashboard').classList.add('hidden');
+  document.getElementById('impersonation-banner').classList.add('hidden');
   if(isPairProfile(profile)){
+    let joined = null;
     try{
       await loadMyProjects();
-      await handlePendingInvite();
+      joined = await handlePendingInvite();
     }catch(e){ console.error('projects load failed', e); }
     if(MY_PROJECTS.length === 0){
       alert('تعذر تحميل مشاريعك. تحقق من قواعد الأمان في فايربيس ثم أعد المحاولة.');
       fbAuth.signOut();
       return;
     }
-    let saved = null;
-    try{ saved = localStorage.getItem('active-project-' + MY_UID); }catch(e){}
-    bindProject(ACTIVE_PROJECT && MY_PROJECTS.some(x=> x.id === ACTIVE_PROJECT.id) ? MY_PROJECTS.find(x=> x.id === ACTIVE_PROJECT.id)
-      : (MY_PROJECTS.find(x=> x.id === saved) || MY_PROJECTS[0]));
-  } else {
-    CURRENT_UID = user.uid; MY_ROLE_ON_ACCOUNT = 'owner'; PARTNER_UID = null; PROJECT_OWNER_UID = user.uid;
+    attachAccessRequestListener();
+    const target = openPid || joined;
+    if(target && MY_PROJECTS.some(x=> x.id === target)) await openProject(target);
+    else await showDashboard();
+    return;
   }
-  fbDb.ref('accounts/' + MY_UID + '/lastLogin').set(Date.now()).catch(()=>{});
-  hideGate();
-  document.getElementById('super-dashboard').classList.add('hidden');
+  CURRENT_UID = user.uid; MY_ROLE_ON_ACCOUNT = 'owner'; PARTNER_UID = null; PROJECT_OWNER_UID = user.uid;
   document.getElementById('app-root').classList.remove('hidden');
-  document.getElementById('impersonation-banner').classList.add('hidden');
   document.getElementById('logout-btn').style.display = '';
   await loadState();
   ensureCategories(); ensureCategoryGroups(); ensureSiteMeta();
@@ -1519,28 +1556,81 @@ async function enterApp(user, profile){
 // ---------- Multiple projects (pair accounts) ----------
 function renderProjectBar(){
   const bar = document.getElementById('project-bar');
-  const show = !!MY_PROFILE && isPairProfile(MY_PROFILE) && !IS_IMPERSONATING;
+  const show = !!MY_PROFILE && isPairProfile(MY_PROFILE) && !IS_IMPERSONATING && !!ACTIVE_PROJECT;
   bar.classList.toggle('hidden', !show);
-  if(!show) return;
-  const sel = document.getElementById('project-select');
-  sel.innerHTML = MY_PROJECTS.map(p=> `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('');
-  if(ACTIVE_PROJECT) sel.value = ACTIVE_PROJECT.id;
+  if(show) document.getElementById('project-bar-name').textContent = ACTIVE_PROJECT.name;
 }
-async function switchProject(pid){
+function pairSummary(data, ownerUid){
+  const st = data || {};
+  let all = Array.isArray(st.general) ? [...st.general] : [];
+  (st.days || []).forEach(d=> all.push(...(Array.isArray(d.items) ? d.items : [])));
+  let ownerTotal = 0, partnerTotal = 0;
+  all.forEach(it=>{
+    const price = parseFloat(it.price) || 0;
+    if(it.createdBy && it.createdBy !== ownerUid) partnerTotal += price; else ownerTotal += price;
+  });
+  const iAmOwner = ownerUid === MY_UID;
+  return {
+    total: ownerTotal + partnerTotal,
+    net: (iAmOwner ? ownerTotal : partnerTotal) - (iAmOwner ? partnerTotal : ownerTotal),
+    theirName: iAmOwner ? (st.partnerName || '') : (st.ownerName || '')
+  };
+}
+async function renderDashboard(){
+  const grid = document.getElementById('pd-grid');
+  grid.innerHTML = MY_PROJECTS.map(p=> `<button type="button" class="pd-card" data-pid="${escapeHtml(p.id)}"><div class="pd-card-title">${escapeHtml(p.name)}</div><div class="pd-card-with">جارٍ التحميل…</div></button>`).join('');
+  grid.querySelectorAll('.pd-card').forEach(c=> c.addEventListener('click', ()=> openProject(c.dataset.pid)));
+  await Promise.all(MY_PROJECTS.map(async p=>{
+    const card = grid.querySelector('.pd-card[data-pid="' + p.id + '"]');
+    if(!card) return;
+    let html = `<div class="pd-card-title">${escapeHtml(p.name)}</div>`;
+    try{
+      const snap = await fbDb.ref('adminData/' + p.id).get();
+      const sm = pairSummary(snap.exists() ? snap.val() : null, p.ownerUid);
+      html += `<div class="pd-card-with">${sm.theirName ? 'مع ' + escapeHtml(sm.theirName) : ''}</div>`;
+      if(Math.abs(sm.net) < 0.01) html += `<div class="pd-card-balance zero">لا يوجد مبلغ مستحق</div>`;
+      else if(sm.net > 0) html += `<div class="pd-card-balance pos">المستحق لك: ${fmt(sm.net)}</div>`;
+      else html += `<div class="pd-card-balance neg">عليك: ${fmt(-sm.net)}</div>`;
+      html += `<div class="pd-card-total">إجمالي الاستهلاك: ${fmt(sm.total)}</div>`;
+    }catch(e){ html += `<div class="pd-card-with">تعذر تحميل الملخص</div>`; }
+    if(p.ownerUid === MY_UID && !p.partnerUid) html += `<div class="pd-card-wait">بانتظار انضمام الطرف الثاني</div>`;
+    card.innerHTML = html;
+  }));
+}
+async function showDashboard(){
+  detachLiveDataListener();
+  ACTIVE_PROJECT = null; CURRENT_UID = null;
+  document.getElementById('app-root').classList.add('hidden');
+  document.getElementById('notif-banner').classList.add('hidden');
+  document.getElementById('projects-dashboard').classList.remove('hidden');
+  window.scrollTo(0, 0);
+  await renderDashboard();
+}
+async function openProject(pid){
   const p = MY_PROJECTS.find(x=> x.id === pid);
-  if(!p || (ACTIVE_PROJECT && ACTIVE_PROJECT.id === pid)) return;
+  if(!p) return;
   detachLiveDataListener();
   bindProject(p);
   try{ localStorage.setItem('active-project-' + MY_UID, pid); }catch(e){}
   openDays = new Set([0]);
+  document.getElementById('projects-dashboard').classList.add('hidden');
+  document.getElementById('app-root').classList.remove('hidden');
+  document.getElementById('logout-btn').style.display = '';
   await loadState();
   ensureCategories(); ensureCategoryGroups(); ensureSiteMeta();
   renderProjectBar();
   render();
+  window.scrollTo(0, 0);
   attachLiveDataListener();
+  await showAdminNotifications();
   await updateInvitePartnerVisibility();
 }
-document.getElementById('project-select')?.addEventListener('change', (e)=> switchProject(e.target.value));
+document.getElementById('back-to-projects')?.addEventListener('click', ()=>{
+  document.getElementById('more-menu')?.classList.remove('open');
+  showDashboard();
+});
+document.getElementById('pd-logout-btn')?.addEventListener('click', ()=> fbAuth.signOut());
+document.getElementById('pd-pass-btn')?.addEventListener('click', ()=> openChangePasswordModal());
 document.getElementById('new-project-btn')?.addEventListener('click', ()=>{
   document.getElementById('np-other').value = '';
   document.getElementById('np-name').value = '';
@@ -1563,7 +1653,7 @@ document.getElementById('np-submit')?.addEventListener('click', async ()=>{
     PROJECT_TEMPLATE = { siteTitle: name, ownerName: myName, partnerName: other };
     MY_PROJECTS.push({ id: pid, ownerUid: MY_UID, name, partnerUid: null, createdAt: Date.now() });
     document.getElementById('new-project-modal').classList.add('hidden');
-    await switchProject(pid);
+    await openProject(pid);
     PROJECT_TEMPLATE = null;
   }catch(e){
     console.error('create project failed', e);
