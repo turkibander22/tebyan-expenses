@@ -468,7 +468,7 @@
   body.is-public .students-actions-col{ display:none !important; }
 
   body.is-member #add-student-btn, body.is-member #add-sub-btn, body.is-member #import-excel-btn,
-  body.is-member #add-group-btn, body.is-member #add-day-btn, body.is-member .grp-add-dep, body.is-member [data-dep-edit], body.is-member [data-dep-del],
+  body.is-member #add-group-btn, body.is-member #add-day-btn,
   body.is-member #clear-all-btn, body.is-member #import-backup-btn,
   body.is-member .logo-btn, body.is-member .header-edit-btn,
   body.is-member [data-edit-group], body.is-member [data-del-group],
@@ -716,7 +716,7 @@
   .grp-add-dep{margin:10px 0 0 !important; width:100%;}
   .grp-deps{margin-top:8px; font-size:.82rem;} .grp-deps summary{cursor:pointer; color:var(--muted);}
   .grp-dep{display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px solid rgba(var(--tint-rgb),.08);}
-  .grp-dep-note{flex:1; color:var(--muted-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .grp-dep-note{flex:1; color:var(--muted-2); white-space:normal; font-size:.78rem;}
 #item-group-hint{font-size:.8rem; color:var(--muted); margin-top:6px;}
 #item-group-hint.over{color:#ff8f8b;}
 </style>
@@ -2481,9 +2481,14 @@ function renderBudgetPage(){
         <button class="icon-btn" data-edit-group="${en}">✏️</button>
         <button class="icon-btn" data-del-group="${en}">🗑️</button></div>`;
     const deps = ((grp && grp.deposits) || []).map((d,i)=> ({d,i})).sort((a,b)=> String(a.d.date||'').localeCompare(String(b.d.date||'')) || a.i - b.i);
-    const depRows = deps.map(x=>`<div class="grp-dep">
-        <span>${formatItemDate(x.d.date)}</span><b>${fmt(x.d.amount)}</b><span class="grp-dep-note">${escapeHtml(x.d.note || '')}</span>
-        <span class="row-actions"><button class="icon-btn" data-dep-edit data-g="${en}" data-i="${x.i}">✏️</button><button class="icon-btn" data-dep-del data-g="${en}" data-i="${x.i}">🗑️</button></span></div>`).join('');
+    const depRows = deps.map(x=>{
+      const who = depositWho(x.d);
+      const when = x.d.createdAt ? new Date(x.d.createdAt).toISOString().slice(0,10) : x.d.date;
+      return `<div class="grp-dep">
+        <span>${formatItemDate(x.d.date)}</span><b>${fmt(x.d.amount)}</b>
+        <span class="grp-dep-note">${who ? '👤 ' + escapeHtml(who) + ' — أُضيف ' + formatItemDate(when) : ''}${x.d.note ? ' · ' + escapeHtml(x.d.note) : ''}</span>
+        ${canEditDeposit(x.d) ? `<span class="row-actions"><button class="icon-btn" data-dep-edit data-g="${en}" data-i="${x.i}">✏️</button><button class="icon-btn" data-dep-del data-g="${en}" data-i="${x.i}">🗑️</button></span>` : ''}</div>`;
+    }).join('');
     return `<div class="grp-card">
       <div class="grp-card-head"><span class="grp-card-name">${en}</span>${actions}</div>
       ${cap > 0 ? `<div class="grp-bar ${rem < 0 ? 'over' : ''}"><div style="width:${pct}%"></div></div>` : ''}
@@ -2521,7 +2526,7 @@ document.getElementById('deposit-save')?.addEventListener('click', ()=>{
   let grp = findAllocGroup(depositTarget.group);
   if(!grp){ grp = { name: depositTarget.group, deposits: [] }; STATE.allocGroups.push(grp); }
   if(depositTarget.idx !== null && grp.deposits[depositTarget.idx]) Object.assign(grp.deposits[depositTarget.idx], {amount, date, note});
-  else grp.deposits.push({ id: Date.now(), amount, date, note });
+  else grp.deposits.push(stampNew({ id: Date.now(), amount, date, note }));
   document.getElementById('deposit-modal').classList.remove('open');
   render(); saveState();
 });
@@ -2552,7 +2557,7 @@ document.getElementById('group-save')?.addEventListener('click', ()=>{
       if(g) g.name = name; else STATE.allocGroups.push({ name, deposits: [] });
     }
   } else {
-    STATE.allocGroups.push({ name, deposits: first > 0 ? [{ id: Date.now(), amount: first, date: new Date().toISOString().slice(0,10), note: '' }] : [] });
+    STATE.allocGroups.push({ name, deposits: first > 0 ? [stampNew({ id: Date.now(), amount: first, date: new Date().toISOString().slice(0,10), note: '' })] : [] });
   }
   document.getElementById('group-modal').classList.remove('open');
   render(); saveState();
@@ -2561,12 +2566,12 @@ document.addEventListener('click', (e)=>{
   const add = e.target.closest('[data-dep-add]');
   if(add){ openDepositForm(add.dataset.g, null); return; }
   const ed = e.target.closest('[data-dep-edit]');
-  if(ed){ openDepositForm(ed.dataset.g, parseInt(ed.dataset.i)); return; }
+  if(ed){ const gg = findAllocGroup(ed.dataset.g); const dd0 = gg && gg.deposits[parseInt(ed.dataset.i)]; if(dd0 && !canEditDeposit(dd0)) return; openDepositForm(ed.dataset.g, parseInt(ed.dataset.i)); return; }
   const dd = e.target.closest('[data-dep-del]');
   if(dd){
     if(!confirm('هل تريد حذف هذا الإيداع؟')) return;
     const g = findAllocGroup(dd.dataset.g);
-    if(g) g.deposits.splice(parseInt(dd.dataset.i), 1);
+    if(g && canEditDeposit(g.deposits[parseInt(dd.dataset.i)])) g.deposits.splice(parseInt(dd.dataset.i), 1);
     render(); saveState(); return;
   }
   const eg = e.target.closest('[data-edit-group]');
@@ -2656,7 +2661,24 @@ function invoiceImgSrc(num){
 }
 
 function sharedAcct(){ return STATE.accountType === 'pair' || !!STATE.multiUser; }
-function adderColOn(){ return STATE.accountType !== 'pair' && !!STATE.multiUser; }
+function adderColOn(){
+  if(STATE.accountType === 'pair') return false;
+  if(STATE.multiUser) return true;
+  return allItemsFlat().some(it=> it.createdByName);
+}
+function stampNew(obj){
+  if(MY_UID && !IS_IMPERSONATING){ obj.createdBy = MY_UID; obj.createdByName = myDisplayName(); obj.createdAt = Date.now(); }
+  return obj;
+}
+function canEditDeposit(d){
+  if(IS_IMPERSONATING || !STATE.multiUser) return MY_ROLE_ON_ACCOUNT !== 'partner' || IS_IMPERSONATING;
+  if(d && d.createdBy) return d.createdBy === MY_UID;
+  return MY_ROLE_ON_ACCOUNT !== 'partner';
+}
+function depositWho(d){
+  const name = d.createdByName || (STATE.multiUser ? STATE.groupOwnerName : '') || '';
+  return name;
+}
 function myDisplayName(){ return (MY_PROFILE && (MY_PROFILE.ownerName || MY_PROFILE.username)) || 'مستخدم'; }
 function canEditItem(it){
   if(IS_IMPERSONATING || !sharedAcct()) return true;
@@ -3097,6 +3119,7 @@ function renderPrintReport(){
   html += `<div class="pr-summary"><span class="pr-sum-budget">المبلغ الكلي: ${fmt(budget)}</span></div>`;
   html += `<table><tr>
       <th class="pr-right">ملاحظات</th>
+      <th class="pr-right">أضافه</th>
       <th>المبلغ</th>
       <th>التاريخ</th>
       <th class="pr-right">التوزيع</th>
@@ -3107,6 +3130,7 @@ function renderPrintReport(){
     (g.deposits||[]).slice().sort((x,y)=> String(x.date||'').localeCompare(String(y.date||''))).forEach(d=>{
       html += `<tr>
         <td class="pr-right">${escapeHtml(d.note||'')}</td>
+        <td class="pr-right">${escapeHtml(depositWho(d))}${d.createdAt ? ' — ' + formatItemDate(new Date(d.createdAt).toISOString().slice(0,10)) : ''}</td>
         <td>${fmt(d.amount)}</td>
         <td>${formatItemDate(d.date)}</td>
         <td class="pr-right">${escapeHtml(g.name)}</td>
@@ -3633,7 +3657,7 @@ document.getElementById('item-form-save').addEventListener('click', async ()=>{
     const allNums = allItemsFlat().map(it=>it.num||0);
     itemNum = allNums.length ? Math.max(...allNums)+1 : 1;
     const newItem = {num: itemNum, title, price, date: itemDate, notes};
-    if(sharedAcct() && MY_UID && !IS_IMPERSONATING){ newItem.createdBy = MY_UID; newItem.createdByName = myDisplayName(); newItem.createdAt = Date.now(); }
+    if((sharedAcct() || STATE.accountType !== 'pair') && MY_UID) stampNew(newItem);
     if(itemFormCtx.kind==='general') STATE.general.push(newItem);
     else STATE.days[itemFormCtx.dayIndex].items.push(newItem);
   }
