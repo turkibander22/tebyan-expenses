@@ -469,7 +469,7 @@
 
   body.is-member #add-student-btn, body.is-member #add-sub-btn, body.is-member #import-excel-btn,
   body.is-member #add-group-btn, body.is-member #add-day-btn,
-  body.is-member #clear-all-btn, body.is-member #import-backup-btn,
+  body.is-member #clear-all-btn, body.is-member #import-backup-btn, body.is-member #change-currency-btn,
   body.is-member .logo-btn, body.is-member .header-edit-btn,
   body.is-member [data-edit-group], body.is-member [data-del-group],
   body.is-member .students-actions-col, body.is-member [data-toggle-sub-status],
@@ -958,9 +958,26 @@
     <p id="np-desc">لكل حساب بياناته الخاصة، ولا يطّلع عليها إلا طرفاه.</p>
     <input type="text" id="np-other" placeholder="اسم الطرف الآخر (مثال: بندر)">
     <input type="text" id="np-name" placeholder="اسم الحساب (اختياري)">
+    <select id="np-currency" aria-label="العملة">
+      <option value="QAR">العملة: ريال قطري (ر.ق)</option>
+      <option value="USD">العملة: دولار أمريكي ($)</option>
+    </select>
     <button id="np-submit">إنشاء الحساب</button>
     <button class="link-btn" id="np-cancel" type="button">إلغاء</button>
     <div class="login-error" id="np-error"></div>
+  </div>
+</div>
+
+<div id="currency-modal" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:3000; display:flex; align-items:center; justify-content:center; padding:20px;">
+  <div class="login-box">
+    <h2>💱 العملة</h2>
+    <p>تُعرض بها جميع المبالغ في هذا الحساب وفي ملف PDF. لا يتغير أي رقم مسجّل، ولا يُجرى تحويل بين العملتين.</p>
+    <select id="currency-select">
+      <option value="QAR">ريال قطري (ر.ق)</option>
+      <option value="USD">دولار أمريكي ($)</option>
+    </select>
+    <button id="currency-save">حفظ</button>
+    <button class="link-btn" id="currency-cancel" type="button">إلغاء</button>
   </div>
 </div>
 
@@ -1040,6 +1057,7 @@
   <button class="mm-item hidden" id="invite-partner-btn"><span class="mm-icon mm-icon-teal">🤝</span><span class="mm-label">دعوة الطرف الثاني</span></button>
   <button class="mm-item hidden" id="change-name-btn"><span class="mm-icon mm-icon-neutral">✏️</span><span class="mm-label">تغيير الاسم</span></button>
   <button class="mm-item" id="add-account-btn"><span class="mm-icon mm-icon-teal">➕</span><span class="mm-label">حساب جديد</span></button>
+  <button class="mm-item" id="change-currency-btn"><span class="mm-icon mm-icon-blue">💱</span><span class="mm-label">العملة</span></button>
   <button class="mm-item" id="change-pass-btn"><span class="mm-icon mm-icon-neutral">🔑</span><span class="mm-label">تغيير الرمز</span></button>
   <div class="mm-divider"></div>
   <button class="mm-item mm-danger" id="clear-all-btn"><span class="mm-icon mm-icon-red">🗑️</span><span class="mm-label">محو كل البيانات</span></button>
@@ -1789,7 +1807,8 @@ function pairSummary(data, ownerUid){
   return {
     total: ownerTotal + partnerTotal,
     net: (iAmOwner ? ownerTotal : partnerTotal) - (iAmOwner ? partnerTotal : ownerTotal),
-    theirName: iAmOwner ? (st.partnerName || '') : (st.ownerName || '')
+    theirName: iAmOwner ? (st.partnerName || '') : (st.ownerName || ''),
+    cur: st.currency || 'QAR'
   };
 }
 async function renderDashboard(){
@@ -1807,16 +1826,16 @@ async function renderDashboard(){
         let all = Array.isArray(st.general) ? [...st.general] : [];
         (st.days || []).forEach(d=> all.push(...(Array.isArray(d.items) ? d.items : [])));
         const tot = all.reduce((a,it)=> a + (parseFloat(it.price) || 0), 0);
-        html += `<div class="pd-card-with">👪 حساب مجموعة</div><div class="pd-card-balance zero">إجمالي المصروفات: ${fmt(tot)}</div>`;
+        html += `<div class="pd-card-with">👪 حساب مجموعة</div><div class="pd-card-balance zero">إجمالي المصروفات: ${fmt(tot, st.currency)}</div>`;
         card.innerHTML = html;
         return;
       }
       const sm = pairSummary(snap.exists() ? snap.val() : null, p.ownerUid);
       html += `<div class="pd-card-with">${sm.theirName ? 'مع ' + escapeHtml(sm.theirName) : ''}</div>`;
       if(Math.abs(sm.net) < 0.01) html += `<div class="pd-card-balance zero">لا يوجد مبلغ مستحق</div>`;
-      else if(sm.net > 0) html += `<div class="pd-card-balance pos">المستحق لك: ${fmt(sm.net)}</div>`;
-      else html += `<div class="pd-card-balance neg">عليك: ${fmt(-sm.net)}</div>`;
-      html += `<div class="pd-card-total">إجمالي الاستهلاك: ${fmt(sm.total)}</div>`;
+      else if(sm.net > 0) html += `<div class="pd-card-balance pos">المستحق لك: ${fmt(sm.net, sm.cur)}</div>`;
+      else html += `<div class="pd-card-balance neg">عليك: ${fmt(-sm.net, sm.cur)}</div>`;
+      html += `<div class="pd-card-total">إجمالي الاستهلاك: ${fmt(sm.total, sm.cur)}</div>`;
     }catch(e){ html += `<div class="pd-card-with">تعذر تحميل الملخص</div>`; }
     if(p.ownerUid === MY_UID && !p.partnerUid) html += `<div class="pd-card-wait">بانتظار انضمام الطرف الثاني</div>`;
     card.innerHTML = html;
@@ -1874,6 +1893,7 @@ function openNewAccountModal(){
   document.getElementById('more-menu')?.classList.remove('open');
   document.getElementById('np-other').value = '';
   document.getElementById('np-name').value = '';
+  document.getElementById('np-currency').value = 'QAR';
   document.getElementById('np-error').style.display = 'none';
   setNpType('pair');
   document.getElementById('new-project-modal').classList.remove('hidden');
@@ -1895,9 +1915,10 @@ document.getElementById('np-submit')?.addEventListener('click', async ()=>{
     const members = {}; members[MY_UID] = true;
     await fbDb.ref('projects/' + pid).set({ ownerUid: MY_UID, name, type: NP_TYPE, createdAt: Date.now(), members });
     await fbDb.ref('accounts/' + MY_UID + '/projects/' + pid).set(true);
+    const cur = document.getElementById('np-currency').value || 'QAR';
     PROJECT_TEMPLATE = NP_TYPE === 'pair'
-      ? { type: 'pair', siteTitle: name, ownerName: myName, partnerName: other }
-      : { type: 'group', siteTitle: name };
+      ? { type: 'pair', siteTitle: name, ownerName: myName, partnerName: other, currency: cur }
+      : { type: 'group', siteTitle: name, currency: cur };
     await loadMyProjects();
     document.getElementById('new-project-modal').classList.add('hidden');
     await openProject(pid);
@@ -1932,6 +1953,17 @@ async function updateInvitePartnerVisibility(){
     btn.classList.toggle('hidden', has);
   }catch(e){ btn.classList.add('hidden'); }
 }
+document.getElementById('change-currency-btn')?.addEventListener('click', ()=>{
+  document.getElementById('more-menu')?.classList.remove('open');
+  document.getElementById('currency-select').value = STATE.currency || 'QAR';
+  document.getElementById('currency-modal').classList.remove('hidden');
+});
+document.getElementById('currency-cancel')?.addEventListener('click', ()=> document.getElementById('currency-modal').classList.add('hidden'));
+document.getElementById('currency-save')?.addEventListener('click', ()=>{
+  STATE.currency = document.getElementById('currency-select').value || 'QAR';
+  document.getElementById('currency-modal').classList.add('hidden');
+  render(); saveState();
+});
 document.getElementById('change-name-btn')?.addEventListener('click', async ()=>{
   const field = MY_ROLE_ON_ACCOUNT === 'partner' ? 'partnerName' : 'ownerName';
   const current = STATE[field] || '';
@@ -2177,9 +2209,11 @@ let STATE = null;
 let openDays = new Set([0]); // day indices whose body stays expanded across re-renders
 let currentUploadTarget = null; // {type:'item'/'general', dayIndex, itemIdx}
 
-function fmt(n){
+const CURRENCIES = { QAR: 'ر.ق', USD: '$' };
+function fmt(n, cur){
   if(n===null || n===undefined || isNaN(n)) return "-";
-  return Number(n).toLocaleString('en-US', {maximumFractionDigits:2}) + " ر.ق";
+  const code = cur || (typeof STATE !== 'undefined' && STATE && STATE.currency) || 'QAR';
+  return Number(n).toLocaleString('en-US', {maximumFractionDigits:2}) + " " + (CURRENCIES[code] || CURRENCIES.QAR);
 }
 function fmtNum(n){
   if(n===null || n===undefined || isNaN(n)) return "-";
@@ -2294,6 +2328,7 @@ async function loadState(){
   // First time this account ever loads: use the program name they chose at registration, if any.
   if(PROJECT_TEMPLATE){
     STATE.siteTitle = PROJECT_TEMPLATE.siteTitle;
+    STATE.currency = PROJECT_TEMPLATE.currency || 'QAR';
     if(PROJECT_TEMPLATE.type === 'pair'){
       STATE.accountType = 'pair';
       STATE.ownerName = PROJECT_TEMPLATE.ownerName;
